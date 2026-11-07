@@ -1,0 +1,30 @@
+# Secrets: never commit (public repo)
+.env
+.env.*
+!.env.example
+.aws_workshop_env
+*.pem
+*.key
+credentials
+.aws/
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+
+# AWS SAM / CDK build output
+.aws-sam/
+cdk.out/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
