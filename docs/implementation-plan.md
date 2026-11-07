@@ -26,6 +26,7 @@ The Architecture Design is the right production design, but it is about 75–115
 ## 2. Workload estimate
 
 **Split:**
+
 - **Jack** drives all backend code in one Claude Code (Opus 5.5) session, so the security core stays consistent.
 - **Larry (system architect)** owns the system as a whole: the contracts, the connections between components, and quality.
 - **Isabella** and **Eric** own self-contained pieces that touch the core only through the contracts in section 5.
@@ -49,12 +50,14 @@ The Architecture Design is the right production design, but it is about 75–115
 | **Total** | | | **~2,600–4,000** |
 
 **Jack is the critical path:** about 20–27 AI-assisted hours of backend work in about 13 clock hours. That only works with parallel Claude Code sessions and no scope creep.
+
 - **Overflow rule:** if M1 isn't working by 20:00, Larry takes over the mock-store code. If the dashboard is ahead of schedule, Isabella takes over the Control API endpoints.
 - **P1 starts only if Milestone 2 is on time.**
 
 ## 3. Scope
 
 **P0: the demo must show all of this**
+
 - Authenticate the agent: Cognito login → KMS-signed delegated token (sub = user, act = agent, 5-minute lifetime).
 - Allow selected MCP tools: the agent sees only shopper tools; Cedar denies gift-card SKUs, other shipping addresses and quantities over 10.
 - Revoke mid-task: Stop button, plus auto-revoke after 2 denials in 5 minutes (the hijacked-agent run).
@@ -125,6 +128,7 @@ Recurring mandates, parental approval queue, virtual cards / Stripe, CAEP events
 ```
 
 **Control API** (Cognito login required):
+
 - `POST /sessions {mandate_id}` → `{sid}`
 - `POST /sessions/{sid}/stop`
 - `GET /sessions/{sid}/audit?after=<ts>`
@@ -144,6 +148,7 @@ Recurring mandates, parental approval queue, virtual cards / Stripe, CAEP events
 **Repo layout:** `agentpass/` · `store/` · `agent/` · `dashboard/` · `infra/` · `tests/` · `docs/`
 
 ## 6. Team rules
+
 - Commit small and often, from your own GitHub account. Never commit AWS keys (`.gitignore` already blocks them).
 - Before you commit AI-written code, read it and be able to explain it. Judges will ask.
 - If something blocks you for more than 45 minutes, tell Larry in the team chat and take the simpler path.
