@@ -13,8 +13,8 @@ AgentPass gives an AI shopping agent its own short-lived, KMS-signed identity. A
 | Folder | Owner | Contents |
 |---|---|---|
 | `agentpass/` | Jack | FastAPI app on :8000: token service, gateway (`/mcp`), Control API, Cedar policies |
-| `agent/` | Jack | Shopping agent (Amazon Bedrock) + credential broker |
-| `store/` | Jack (mock store), Larry (Shopify adapter + seed data) | Store MCP server on :8100 (mock, or adapter to a Shopify dev store) + payment mock + `seed.json`; same tool contract either way |
+| `agent/` | Larry | Shopping agent (Amazon Bedrock) + credential broker |
+| `store/` | Larry | Store MCP server on :8100 (mock, or adapter to a Shopify dev store) + payment mock + `seed.json`; same tool contract either way |
 | `infra/` | Jack | `setup.py`: creates the DynamoDB tables, Cognito pool and KMS keys with boto3 |
 | `dashboard/` | Isabella | React + Vite on :5173; talks only to the agentpass API, never to AWS directly |
 | `tests/` | Larry | End-to-end + rule tests, token-replay script, demo reset |

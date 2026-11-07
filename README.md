@@ -27,9 +27,9 @@ AI shopping agents can now check out on their own. This project gives every shop
 
 | Name | GitHub | Role |
 |---|---|---|
-| Jack Ning | @timewalker91 | Backend: token service, gateway, Cedar, agent, store, infra |
+| Jack Ning | @timewalker91 | Security core: infra, token service, gateway, Cedar policies, Control API |
 | Isabella | @Isabellazzz | Dashboard (React) + Touch ID step-up page |
-| Larry | | System architect: contracts, integration (agent / store / AWS), quality gates, tests, demo environment |
+| Larry | | System architect: contracts, integration, quality gates; store + shopping agent; tests, demo environment |
 | Eric | | Slides, business plan, Devpost, Q&A |
 
 AI tools: read [`CLAUDE.md`](CLAUDE.md) and [`docs/implementation-plan.md`](docs/implementation-plan.md) first.
