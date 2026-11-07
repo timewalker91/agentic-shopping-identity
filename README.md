@@ -39,4 +39,4 @@ AI shopping agents can now check out on their own. This project gives every shop
 
 ## Deadline
 
-Devpost submission: **Sat Nov 8, 2026, 9:00 AM PST**. Judging in Heafey Atrium starts ~9:30 AM.
+Devpost submission: **Sun Nov 8, 2026, 9:00 AM PST**. Judging in Heafey Atrium starts ~9:30 AM.
