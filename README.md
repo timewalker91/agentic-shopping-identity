@@ -23,6 +23,33 @@ AI shopping agents can now check out on their own. This project gives every shop
 | `tests/` | Rule tests, token-replay script, demo reset |
 | `docs/` | Implementation plan, scenario map, architecture |
 
+## Run it
+
+```bash
+uv venv --python 3.12 .venv && source .venv/bin/activate     # or python3.12 -m venv .venv
+uv pip install -e ".[dev]"                                    # or pip install -e ".[dev]"
+pytest                                                        # 35 tests, no AWS needed
+```
+
+Three terminals, local mode (no AWS; in-memory tables, local signing key, user `parent` / `parent-pass`):
+
+```bash
+python -m store.server          # store MCP server on :8100 (mock catalog; STORE_BACKEND=shopify for the dev store)
+python -m agentpass             # token service + gateway + Control API on :8000
+agent login --user parent --password parent-pass
+agent session start             # Cognito/local login -> session -> KMS/local-signed passport (5 min)
+agent tools                     # the agent sees only the 6 shopper tools
+agent shop --scenario happy     # S1: search, add, checkout within budget
+agent session start && agent shop --scenario hijacked   # S3: poisoned listing -> 2 denials -> auto-revoke -> 401
+agent replay --expect 401       # the copied, unexpired token is blocked
+tests/replay_token.sh           # same with curl
+```
+
+`agent shop --driver bedrock "buy notebooks, pens and glue under $50"` runs the Amazon Bedrock agent instead of the
+scripted scenarios. AWS mode: `source ~/.aws_workshop_env`, `python -m infra.setup --demo-password '...'`, then start
+`agentpass` again; it picks up `AGENTPASS_MODE=aws` from `.env` (DynamoDB, KMS signing, Cognito login).
+Each folder's README has the details; `agentpass/README.md` documents the HTTP API the dashboard uses.
+
 ## Team
 
 | Name | GitHub | Role |

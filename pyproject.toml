@@ -1,0 +1,41 @@
+[project]
+name = "agentpass"
+version = "0.1.0"
+description = "AgentPass: short-lived, KMS-signed identities for AI shopping agents, enforced on every MCP tool call"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "boto3>=1.35",
+  "cedarpy>=4.0",
+  "mcp>=2.0",
+  "PyJWT[crypto]>=2.9",
+  "httpx>=0.27",
+  "pydantic>=2.7",
+  "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+agentpass = "agentpass.main:main"
+agentpass-store = "store.server:main"
+agentpass-setup = "infra.setup:main"
+agent = "agent.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["agentpass", "store", "agent", "infra"]
+
+[tool.setuptools.package-data]
+agentpass = ["policies/*.cedar"]
+store = ["seed.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
