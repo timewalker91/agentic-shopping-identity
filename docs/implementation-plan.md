@@ -130,7 +130,7 @@ Recurring mandates, parental approval queue, virtual cards / Stripe, CAEP events
 | `get_order_status` | `order_id` | Yes | Permit |
 | `change_shipping_address`, `buy_gift_card` | – | **No** | Forbid for all agents |
 
-**Errors** (JSON-RPC error code `-32000`, reason in `error.data.reason`):
+**Errors** (JSON-RPC error code `-32000`, reason in `error.data.reason`). *Implemented:* the gateway sends these over **HTTP 200**, with the HTTP-style code below in `error.data.status`, because the MCP 1.x client SDK only reads JSON-RPC errors from 2xx responses (it surfaces them as `McpError`). Only a missing or invalid token gets a real HTTP 401.
 
 | Reason | HTTP | Agent behavior |
 |---|---|---|

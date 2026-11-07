@@ -25,7 +25,7 @@ results: list[tuple[str, bool]] = []
 
 def check(name: str, ok: bool, detail: str = "") -> None:
     results.append((name, ok))
-    print(f"{'PASS' if ok else 'FAIL'}  {name}{('  -> ' + detail) if detail else ''}")
+    print(f"{'PASS' if ok else 'FAIL'}  {name}{('  -> ' + detail[:110]) if detail else ''}")
 
 
 def assertion() -> str:

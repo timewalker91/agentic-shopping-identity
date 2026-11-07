@@ -12,6 +12,7 @@ load_dotenv(ROOT / ".env.local")
 
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 BASE_URL = os.environ.get("AGENTPASS_BASE_URL", "http://localhost:8000")
+STORE_MCP_URL = os.environ.get("STORE_MCP_URL", "http://127.0.0.1:8100/mcp")  # Larry's store; only the gateway calls it
 
 # Delegated agent token (docs/implementation-plan.md, section 5)
 ISSUER = "agentpass"

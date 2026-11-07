@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import control, token_service
+from . import control, gateway, token_service
 
 app = FastAPI(title="AgentPass", version="0.1.0")
 app.add_middleware(
@@ -14,6 +14,7 @@ app.add_middleware(
 )
 app.include_router(token_service.router)
 app.include_router(control.router)
+app.include_router(gateway.router)
 
 
 @app.get("/healthz")
