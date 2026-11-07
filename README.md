@@ -1,4 +1,4 @@
-# Agentic Shopping Identity
+# AgentPass: Agentic Shopping Identity
 
 > AWS x A10 Hack 2026, Santa Clara University · **A10 Track, Prompt 1: Agentic Identity**
 
@@ -11,24 +11,28 @@ AI shopping agents can now check out on their own. This project gives every shop
 - [ ] Revoke access mid-task (poisoned product listing → auto-revoke, or parent kill switch)
 - [ ] Block subsequent requests (retries with the unexpired token → 401)
 
-## Repo layout (planned)
+## Repo layout
 
 | Folder | What goes here |
 |---|---|
-| `agent/` | Shopping agent (Python + Amazon Bedrock) |
-| `store/` | Mock store + MCP server exposing shopping tools |
-| `gateway/` | API Gateway + Lambda authorizer (identity, revocation list, tool allowlist, budget) |
-| `dashboard/` | React live activity feed, budget meter, Revoke button |
-| `docs/` | PRD, scenario map, architecture diagram |
+| `agentpass/` | FastAPI app on :8000: token service (KMS-signed delegated tokens), MCP gateway, Cedar policies, Control API |
+| `agent/` | Shopping agent (Python + Amazon Bedrock) + credential broker |
+| `store/` | Mock store MCP server + payment mock + seed catalog (with one poisoned listing) |
+| `infra/` | `setup.py`: DynamoDB tables, Cognito user pool, KMS keys (boto3) |
+| `dashboard/` | React live security dashboard: Agent Passport, decision feed, budget gauge, Stop button |
+| `tests/` | Rule tests, token-replay script, demo reset |
+| `docs/` | Implementation plan, scenario map, architecture |
 
 ## Team
 
 | Name | GitHub | Role |
 |---|---|---|
-| Jack Ning | @timewalker91 | Product, pitch, Devpost |
-| | | |
-| | | |
-| | | |
+| Jack Ning | @timewalker91 | Backend: token service, gateway, Cedar, agent, store, infra |
+| Isabella | @Isabellazzz | Dashboard (React) + Touch ID step-up page |
+| Larry | | Seed data + poisoned listing, tests, demo reset, backup video |
+| Eric | | Slides, business plan, Devpost, Q&A |
+
+AI tools: read [`CLAUDE.md`](CLAUDE.md) and [`docs/implementation-plan.md`](docs/implementation-plan.md) first.
 
 ## Team rules
 

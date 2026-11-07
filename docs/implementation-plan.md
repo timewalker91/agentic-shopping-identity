@@ -5,7 +5,7 @@
 
 ## 1. Decision: hybrid build
 
-The Architecture Design is the right production design, but it is about 75–115 person-hours of work. We have **2 builders** (Jack, Isabella), so about 26 builder-hours remain. We keep the same design and the same Cedar policies, and swap the heavy managed pieces for thin code we can explain line by line. **AWS stays where it is cheap:** Bedrock, Cognito, DynamoDB and KMS.
+The Architecture Design is the right production design, but it is about 75–115 person-hours of work. We have about 13 clock hours of building left: Jack drives the backend with Claude Code, and Isabella builds the dashboard. We keep the same design and the same Cedar policies, and swap the heavy managed pieces for thin code we can explain line by line. **AWS stays where it is cheap:** Bedrock, Cognito, DynamoDB and KMS.
 
 | Architecture Design | Hackathon build | Why |
 |---|---|---|
@@ -24,23 +24,27 @@ The Architecture Design is the right production design, but it is about 75–115
 
 ## 2. Workload estimate
 
+**Split:** Jack drives all backend code in one Claude Code (Opus 5.5) session, so the security core stays consistent. The other three own self-contained pieces that touch the core only through the contracts in section 5.
+
 | Component | Owner | Hours (AI-assisted) | Lines |
 |---|---|---|---|
-| `infra/setup.py`: DynamoDB tables, Cognito pool + test user, KMS keys | Isabella | 1.5–2 | 100–200 |
-| Token service: RFC 8693 exchange, KMS signing, JWKS, revocation check | Isabella | 3–4 | 250–350 |
-| Gateway: token check, revocation, Cedar, budget, violation counter, audit | Isabella | 5–7 | 400–600 |
-| Cedar policies + entity mapping | Isabella | 1 | 80–150 |
-| Control API: sessions, stop, audit, mandate, demo reset | Isabella | 1.5–2 | 150–250 |
-| Store MCP server + payment mock + seed catalog (with poisoned listing) | Jack | 2–3 | 300–450 |
-| Shopping agent (Bedrock) + credential broker | Jack | 3–4 | 200–350 |
-| Dashboard: login, mandate, Passport card, live feed, budget gauge, Stop | Jack | 5–7 | 700–1,000 |
-| Integration + end-to-end debugging | Jack + Isabella | 3–4 | – |
-| Rule tests, token-replay script, demo reset runs, injection tuning | Larry | 3–4 | 200–300 |
-| Slides, business plan, Devpost, Q&A sheet; backup video with Larry | Eric | 5–6 | – |
-| *P1: Touch ID step-up (WebAuthn bound to the cart hash)* | First builder free | 3–4 | 250–350 |
+| `infra/setup.py`: DynamoDB tables, Cognito pool + test user, KMS keys | **Jack** | 1.5–2 | 100–200 |
+| Token service: RFC 8693 exchange, KMS signing, JWKS, revocation check | **Jack** | 3–4 | 250–350 |
+| Gateway: token check, revocation, Cedar, budget, violation counter, audit | **Jack** | 5–7 | 400–600 |
+| Cedar policies + entity mapping | **Jack** | 1 | 80–150 |
+| Control API: sessions, stop, audit, mandate, demo reset | **Jack** | 1.5–2 | 150–250 |
+| Store MCP server + payment mock (code) | **Jack** | 2–3 | 300–450 |
+| Shopping agent (Bedrock) + credential broker | **Jack** | 3–4 | 200–350 |
+| Integration + end-to-end debugging | **Jack** (Larry tests) | 3–4 | – |
+| Dashboard: login, mandate, Passport card, live feed, budget gauge, Stop | **Isabella** | 5–7 | 700–1,000 |
+| *P1: Touch ID step-up page (WebAuthn bound to the cart hash)* | **Isabella** (UI) + Jack (API) | 3–4 | 250–350 |
+| Seed catalog JSON + the poisoned listing text, rule tests, token-replay script, demo reset runs, injection tuning, backup video | **Larry** | 4–5 | 200–300 |
+| Slides, business plan, Devpost, Q&A sheet; learn the architecture with Jack | **Eric** | 5–6 | – |
 | **Total** | | | **~2,600–4,000** |
 
-Each builder carries about 13–17 hours from 14:30 to 03:30, so **P1 starts only if Milestone 2 is on time.**
+**Jack is the critical path:** about 20–27 AI-assisted hours of backend work in about 13 clock hours. That only works with parallel Claude Code sessions and no scope creep.
+- **Overflow rule:** if M1 isn't green by 20:00, Larry takes over the store code. If the dashboard is ahead of schedule, Isabella takes over the Control API endpoints.
+- **P1 starts only if Milestone 2 is on time.**
 
 ## 3. Scope
 
@@ -69,7 +73,7 @@ Recurring mandates, parental approval queue, virtual cards / Stripe, CAEP events
 | 03:30–07:30 | Backup video, revoke-moment GIF, slides with business model, Devpost, README | Each person can explain their part in 1 minute |
 | 07:30–08:30 | Rehearse 3 times with Q&A drill, **submit Devpost** | At the Heafey Atrium by 9:00 |
 
-## 5. Contracts: freeze by 15:30, change only with both builders' agreement
+## 5. Contracts: freeze by 15:30, change only after telling the whole team
 
 **Processes and ports.** `agentpass` FastAPI (token service + gateway + control API) on `:8000` · `store` MCP server on `:8100` (reachable only by the gateway) · `dashboard` Vite on `:5173` · `agent` command-line client. Region `us-east-1`.
 
@@ -136,4 +140,5 @@ Recurring mandates, parental approval queue, virtual cards / Stripe, CAEP events
 - Commit small and often, from your own GitHub account. Never commit AWS keys (`.gitignore` already blocks them).
 - Before you commit AI-written code, read it and be able to explain it. Judges will ask.
 - If something blocks you for more than 45 minutes, say so in the team chat and take the simpler path.
+- Everyone's AI tool (Claude Code, Kiro, or other) reads `CLAUDE.md` and this plan before writing code. Consistency comes from the contracts, not from using one model.
 - **Open questions for 15:30:** (1) Does the team agree on the hybrid build? (2) Are the owners right? (3) Which Bedrock model? Claude if the account has access, otherwise Llama 4 Scout.
