@@ -29,7 +29,7 @@ AI shopping agents can now check out on their own. This project gives every shop
 |---|---|---|
 | Jack Ning | @timewalker91 | Backend: token service, gateway, Cedar, agent, store, infra |
 | Isabella | @Isabellazzz | Dashboard (React) + Touch ID step-up page |
-| Larry | | Seed data + poisoned listing, tests, demo reset, backup video |
+| Larry | | System architect: contracts, integration (agent / store / AWS), quality gates, tests, demo environment |
 | Eric | | Slides, business plan, Devpost, Q&A |
 
 AI tools: read [`CLAUDE.md`](CLAUDE.md) and [`docs/implementation-plan.md`](docs/implementation-plan.md) first.

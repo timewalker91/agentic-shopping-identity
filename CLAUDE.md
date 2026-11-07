@@ -5,7 +5,7 @@ Read this before writing any code in this repo. It applies to Claude Code, Kiro,
 ## What we're building
 AgentPass gives an AI shopping agent its own short-lived, KMS-signed identity. A gateway checks every MCP tool call against that identity, Cedar policies, a revocation list and a budget. The user (or an automatic rule) can revoke the agent mid-task, and every later request is blocked. This is the AWS x A10 Hack 2026, A10 Prompt 1.
 
-**Source of truth:** `docs/implementation-plan.md`, especially **section 5, Contracts**. Follow it exactly. If a contract seems wrong, stop and ask the team; don't silently change it.
+**Source of truth:** `docs/implementation-plan.md`, especially **section 5, Contracts**. Follow it exactly. **Larry (system architect) owns the contracts:** if one seems wrong, stop and ask Larry; don't silently change it.
 
 @docs/implementation-plan.md
 
@@ -14,11 +14,11 @@ AgentPass gives an AI shopping agent its own short-lived, KMS-signed identity. A
 |---|---|---|
 | `agentpass/` | Jack | FastAPI app on :8000: token service, gateway (`/mcp`), Control API, Cedar policies |
 | `agent/` | Jack | Shopping agent (Amazon Bedrock) + credential broker |
-| `store/` | Jack (code), Larry (seed data) | Mock store MCP server on :8100 + payment mock + `seed.json` |
+| `store/` | Jack (mock store), Larry (Shopify adapter + seed data) | Store MCP server on :8100 (mock, or adapter to a Shopify dev store) + payment mock + `seed.json`; same tool contract either way |
 | `infra/` | Jack | `setup.py`: creates the DynamoDB tables, Cognito pool and KMS keys with boto3 |
 | `dashboard/` | Isabella | React + Vite on :5173; talks only to the agentpass API, never to AWS directly |
-| `tests/` | Larry | Rule tests, token-replay script, demo reset |
-| `docs/` | Everyone | Plans, architecture, pitch material |
+| `tests/` | Larry | End-to-end + rule tests, token-replay script, demo reset |
+| `docs/` | Everyone (Larry owns the architecture docs) | Plans, architecture, pitch material |
 
 Only edit another person's folder after telling them.
 

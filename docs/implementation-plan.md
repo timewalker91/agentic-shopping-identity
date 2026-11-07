@@ -19,12 +19,16 @@ The Architecture Design is the right production design, but it is about 75–115
 | EventBridge risk engine | Violation counter inside the gateway | 2 denials → auto-revoke; EventBridge moves to P1 |
 | AppSync Events | Dashboard polls `/audit` every second | P1 |
 | Amplify Hosting + CDK | localhost + one setup script (`infra/setup.py`) | No deploy risk |
+| Store tools (Lambda targets) | Mock store MCP server (P0). **Option:** a Shopify development store via its Storefront MCP endpoint, behind the same tool contract (Larry's spike, decision by 16:00). Checkout always goes to our payment mock. | The mock keeps the demo deterministic; Shopify makes the demo real. No real payments either way |
 
 **Architecture slide line:** "Built as a portable gateway; the same Cedar policies run on Amazon Bedrock AgentCore Gateway + Policy in production."
 
 ## 2. Workload estimate
 
-**Split:** Jack drives all backend code in one Claude Code (Opus 5.5) session, so the security core stays consistent. The other three own self-contained pieces that touch the core only through the contracts in section 5.
+**Split:**
+- **Jack** drives all backend code in one Claude Code (Opus 5.5) session, so the security core stays consistent.
+- **Larry (system architect)** owns the system as a whole: the contracts, the connections between components, and quality.
+- **Isabella** and **Eric** own self-contained pieces that touch the core only through the contracts in section 5.
 
 | Component | Owner | Hours (AI-assisted) | Lines |
 |---|---|---|---|
@@ -38,12 +42,14 @@ The Architecture Design is the right production design, but it is about 75–115
 | Integration + end-to-end debugging | **Jack** (Larry tests) | 3–4 | – |
 | Dashboard: login, mandate, Passport card, live feed, budget gauge, Stop | **Isabella** | 5–7 | 700–1,000 |
 | *P1: Touch ID step-up page (WebAuthn bound to the cart hash)* | **Isabella** (UI) + Jack (API) | 3–4 | 250–350 |
-| Seed catalog JSON + the poisoned listing text, rule tests, token-replay script, demo reset runs, injection tuning, backup video | **Larry** | 4–5 | 200–300 |
+| **System architecture & integration:** owns the contracts in section 5; wires agent ↔ gateway ↔ store ↔ AWS (Cognito, DynamoDB, KMS, Bedrock); runs the M1/M2 quality gates; keeps the architecture diagram for the slides | **Larry** | 3–4 | – |
+| Store integration: Shopify dev-store spike + adapter (if chosen), seed catalog with the poisoned listing | **Larry** | 2–3 | 100–200 |
+| End-to-end + rule tests, token-replay script, demo environment (reset, warm-up), injection tuning; backup video with Eric | **Larry** | 3–4 | 200–300 |
 | Slides, business plan, Devpost, Q&A sheet; learn the architecture with Jack | **Eric** | 5–6 | – |
 | **Total** | | | **~2,600–4,000** |
 
 **Jack is the critical path:** about 20–27 AI-assisted hours of backend work in about 13 clock hours. That only works with parallel Claude Code sessions and no scope creep.
-- **Overflow rule:** if M1 isn't green by 20:00, Larry takes over the store code. If the dashboard is ahead of schedule, Isabella takes over the Control API endpoints.
+- **Overflow rule:** if M1 isn't working by 20:00, Larry takes over the mock-store code. If the dashboard is ahead of schedule, Isabella takes over the Control API endpoints.
 - **P1 starts only if Milestone 2 is on time.**
 
 ## 3. Scope
@@ -66,14 +72,15 @@ Recurring mandates, parental approval queue, virtual cards / Stripe, CAEP events
 
 | Time | Phase | Done when |
 |---|---|---|
-| 14:30–15:30 | Everyone joins AWS (@scu.edu). Bedrock check. **Freeze the contracts (section 5).** Repo skeleton pushed. | Each builder can call Bedrock and DynamoDB from their laptop |
-| 15:30–20:00 | Build components in parallel against the contracts | **M1 (20:00):** one allowed tool call goes login → token → gateway → Cedar → store and shows on the dashboard |
-| 20:00–00:30 | Stop → 401, Cedar enforce, budget, injection → auto-revoke, live dashboard | **M2 (00:30):** the full P0 demo passes 3 times in a row after a reset |
+| 14:30–15:30 | Everyone joins AWS (@scu.edu). Bedrock check. **Larry freezes the contracts (section 5).** Repo skeleton pushed. | Each builder can call Bedrock and DynamoDB from their laptop |
+| 15:30–16:00 | Larry: Shopify dev-store spike (MCP endpoint reachable? Can we seed the poisoned listing?) | **16:00:** Larry decides between the Shopify store and the mock store |
+| 16:00–20:00 | Build components in parallel against the contracts | **M1 (20:00, Larry signs off):** one allowed tool call goes login → token → gateway → Cedar → store and shows on the dashboard |
+| 20:00–00:30 | Stop → 401, Cedar enforce, budget, injection → auto-revoke, live dashboard | **M2 (00:30, Larry signs off):** the full P0 demo passes 3 times in a row after a reset |
 | 00:30–03:30 | P1 (Touch ID first), UI polish, sleep in shifts | **Feature freeze 03:30** |
 | 03:30–07:30 | Backup video, revoke-moment GIF, slides with business model, Devpost, README | Each person can explain their part in 1 minute |
 | 07:30–08:30 | Rehearse 3 times with Q&A drill, **submit Devpost** | At the Heafey Atrium by 9:00 |
 
-## 5. Contracts: freeze by 15:30, change only after telling the whole team
+## 5. Contracts: owned by Larry, frozen at 15:30, changes need Larry's sign-off
 
 **Processes and ports.** `agentpass` FastAPI (token service + gateway + control API) on `:8000` · `store` MCP server on `:8100` (reachable only by the gateway) · `dashboard` Vite on `:5173` · `agent` command-line client. Region `us-east-1`.
 
@@ -139,6 +146,6 @@ Recurring mandates, parental approval queue, virtual cards / Stripe, CAEP events
 ## 6. Team rules
 - Commit small and often, from your own GitHub account. Never commit AWS keys (`.gitignore` already blocks them).
 - Before you commit AI-written code, read it and be able to explain it. Judges will ask.
-- If something blocks you for more than 45 minutes, say so in the team chat and take the simpler path.
+- If something blocks you for more than 45 minutes, tell Larry in the team chat and take the simpler path.
 - Everyone's AI tool (Claude Code, Kiro, or other) reads `CLAUDE.md` and this plan before writing code. Consistency comes from the contracts, not from using one model.
 - **Open questions for 15:30:** (1) Does the team agree on the hybrid build? (2) Are the owners right? (3) Which Bedrock model? Claude if the account has access, otherwise Llama 4 Scout.
