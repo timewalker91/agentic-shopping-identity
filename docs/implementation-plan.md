@@ -26,8 +26,9 @@ The Architecture Design is the right production design, but it is about 75–115
 ## 2. Workload estimate
 
 **Split:**
-- **Jack** drives all backend code in one Claude Code (Opus 5.5) session, so the security core stays consistent.
-- **Larry (system architect)** owns the system as a whole: the contracts, the connections between components, and quality.
+
+- **Jack** drives the security core (infra, token service, gateway, Cedar, Control API) in one Claude Code (Opus 5.5) session, so it stays consistent.
+- **Larry (system architect)** owns the system as a whole: the contracts, the connections between components, and quality. He also builds and tests the store and the shopping agent himself.
 - **Isabella** and **Eric** own self-contained pieces that touch the core only through the contracts in section 5.
 
 | Component | Owner | Hours (AI-assisted) | Lines |
@@ -37,8 +38,8 @@ The Architecture Design is the right production design, but it is about 75–115
 | Gateway: token check, revocation, Cedar, budget, violation counter, audit | **Jack** | 5–7 | 400–600 |
 | Cedar policies + entity mapping | **Jack** | 1 | 80–150 |
 | Control API: sessions, stop, audit, mandate, demo reset | **Jack** | 1.5–2 | 150–250 |
-| Store MCP server + payment mock (code) | **Jack** | 2–3 | 300–450 |
-| Shopping agent (Bedrock) + credential broker | **Jack** | 3–4 | 200–350 |
+| Store MCP server + payment mock (code) | **Larry** | 2–3 | 300–450 |
+| Shopping agent (Bedrock) + credential broker | **Larry** | 3–4 | 200–350 |
 | Integration + end-to-end debugging | **Jack** (Larry tests) | 3–4 | – |
 | Dashboard: login, mandate, Passport card, live feed, budget gauge, Stop | **Isabella** | 5–7 | 700–1,000 |
 | *P1: Touch ID step-up page (WebAuthn bound to the cart hash)* | **Isabella** (UI) + Jack (API) | 3–4 | 250–350 |
@@ -48,13 +49,16 @@ The Architecture Design is the right production design, but it is about 75–115
 | Slides, business plan, Devpost, Q&A sheet; learn the architecture with Jack | **Eric** | 5–6 | – |
 | **Total** | | | **~2,600–4,000** |
 
-**Jack is the critical path:** about 20–27 AI-assisted hours of backend work in about 13 clock hours. That only works with parallel Claude Code sessions and no scope creep.
-- **Overflow rule:** if M1 isn't working by 20:00, Larry takes over the mock-store code. If the dashboard is ahead of schedule, Isabella takes over the Control API endpoints.
+**Load:** Jack about 15–20 AI-assisted hours, Larry about 16–22 (architecture, store, agent, tests). Both run close to the ~13 clock hours left, so P0 only until M2.
+
+- **Overflow rule:** if M1 isn't working by 20:00, Jack takes the mock store off Larry so Larry can focus on the agent and integration. If the dashboard is ahead of schedule, Isabella takes over the Control API endpoints.
+- **Jack ↔ Larry interface:** the agent's credential broker calls Jack's token service, and the agent calls Jack's gateway. Both follow the formats in section 5, so you two can test against each other from M1 on.
 - **P1 starts only if Milestone 2 is on time.**
 
 ## 3. Scope
 
 **P0: the demo must show all of this**
+
 - Authenticate the agent: Cognito login → KMS-signed delegated token (sub = user, act = agent, 5-minute lifetime).
 - Allow selected MCP tools: the agent sees only shopper tools; Cedar denies gift-card SKUs, other shipping addresses and quantities over 10.
 - Revoke mid-task: Stop button, plus auto-revoke after 2 denials in 5 minutes (the hijacked-agent run).
@@ -84,6 +88,26 @@ Recurring mandates, parental approval queue, virtual cards / Stripe, CAEP events
 
 **Processes and ports.** `agentpass` FastAPI (token service + gateway + control API) on `:8000` · `store` MCP server on `:8100` (reachable only by the gateway) · `dashboard` Vite on `:5173` · `agent` command-line client. Region `us-east-1`.
 
+**Token exchange: Larry's credential broker → Jack's token service.** Taken from the Architecture Design; *needs Larry's sign-off*.
+
+`POST :8000/oauth2/token`, form-encoded:
+
+| Field | Value |
+|---|---|
+| `grant_type` | `urn:ietf:params:oauth:grant-type:token-exchange` |
+| `subject_token` | the user's Cognito access token |
+| `subject_token_type` | `urn:ietf:params:oauth:token-type:access_token` |
+| `actor_token` | client assertion JWT signed with the agent's KMS key: `iss` = `sub` = `agent_shopper_v1`, `aud` = `http://localhost:8000/oauth2/token`, `exp` ≤ 60 s, unique `jti` |
+| `actor_token_type` | `urn:ietf:params:oauth:token-type:jwt` |
+| `audience` | `agentpass-gateway` |
+| `scope` | `catalog:read cart:write checkout:execute` |
+| `session_id` | the `sid` from `POST /sessions` |
+
+- **Response:** `{"access_token": "...", "token_type": "Bearer", "expires_in": 300}`.
+- **Errors:** 400 `invalid_grant` with a reason.
+- The broker re-runs the exchange when fewer than 60 s remain.
+- `infra/setup.py` (Jack) creates the agent's KMS key under the alias `alias/agentpass-agent-shopper-v1` and prints its ARN for Larry.
+
 **Delegated token claims** (as in the Architecture Design; flat claims so Cedar can read them):
 
 ```json
@@ -106,7 +130,7 @@ Recurring mandates, parental approval queue, virtual cards / Stripe, CAEP events
 | `get_order_status` | `order_id` | Yes | Permit |
 | `change_shipping_address`, `buy_gift_card` | – | **No** | Forbid for all agents |
 
-**Errors** (JSON-RPC error code `-32000`, reason in `error.data.reason`):
+**Errors** (JSON-RPC error code `-32000`, reason in `error.data.reason`). *Implemented:* the gateway sends these over **HTTP 200**, with the HTTP-style code below in `error.data.status`, because the MCP 1.x client SDK only reads JSON-RPC errors from 2xx responses (it surfaces them as `McpError`). Only a missing or invalid token gets a real HTTP 401.
 
 | Reason | HTTP | Agent behavior |
 |---|---|---|
@@ -125,6 +149,7 @@ Recurring mandates, parental approval queue, virtual cards / Stripe, CAEP events
 ```
 
 **Control API** (Cognito login required):
+
 - `POST /sessions {mandate_id}` → `{sid}`
 - `POST /sessions/{sid}/stop`
 - `GET /sessions/{sid}/audit?after=<ts>`
@@ -144,6 +169,7 @@ Recurring mandates, parental approval queue, virtual cards / Stripe, CAEP events
 **Repo layout:** `agentpass/` · `store/` · `agent/` · `dashboard/` · `infra/` · `tests/` · `docs/`
 
 ## 6. Team rules
+
 - Commit small and often, from your own GitHub account. Never commit AWS keys (`.gitignore` already blocks them).
 - Before you commit AI-written code, read it and be able to explain it. Judges will ask.
 - If something blocks you for more than 45 minutes, tell Larry in the team chat and take the simpler path.

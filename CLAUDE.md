@@ -13,8 +13,8 @@ AgentPass gives an AI shopping agent its own short-lived, KMS-signed identity. A
 | Folder | Owner | Contents |
 |---|---|---|
 | `agentpass/` | Jack | FastAPI app on :8000: token service, gateway (`/mcp`), Control API, Cedar policies |
-| `agent/` | Jack | Shopping agent (Amazon Bedrock) + credential broker |
-| `store/` | Jack (mock store), Larry (Shopify adapter + seed data) | Store MCP server on :8100 (mock, or adapter to a Shopify dev store) + payment mock + `seed.json`; same tool contract either way |
+| `agent/` | Larry | Shopping agent (Amazon Bedrock) + credential broker |
+| `store/` | Larry | Store MCP server on :8100 (mock, or adapter to a Shopify dev store) + payment mock + `seed.json`; same tool contract either way |
 | `infra/` | Jack | `setup.py`: creates the DynamoDB tables, Cognito pool and KMS keys with boto3 |
 | `dashboard/` | Isabella | React + Vite on :5173; talks only to the agentpass API, never to AWS directly |
 | `tests/` | Larry | End-to-end + rule tests, token-replay script, demo reset |
@@ -28,7 +28,9 @@ Only edit another person's folder after telling them.
 - **The model never sees tokens.** Only the credential broker in `agent/` holds and attaches tokens.
 - **Fail closed.** If the gateway can't read the revocation list or evaluate policy, deny the call.
 - **Never log** Authorization headers, full tokens or payment data.
-- **Python:** 3.12+, type hints, small modules, FastAPI + boto3 + cedarpy + the `mcp` SDK. **Dashboard:** TypeScript + React + Vite.
+- **Python:** 3.13 via `uv` (`uv sync`, then `uv run ...`), type hints, small modules, FastAPI + boto3 + cedarpy. **MCP SDK is pinned to 1.x:** use `from mcp.server.fastmcp import FastMCP` for servers and `mcp.client.streamable_http.streamablehttp_client` + `ClientSession` for clients. **Dashboard:** TypeScript + React + Vite.
+- **Bedrock models:** the workshop allowlist blocks Claude Sonnet 5.5, Haiku 5.5, Opus 5.5 and Fable 5.1. Use `us.anthropic.claude-sonnet-5`, `us.anthropic.claude-haiku-4-5-20251001-v1:0` or `us.meta.llama4-scout-17b-instruct-v1:0`.
+- **Reference code:** `agentpass/smoke_gateway.py` is a working agent-side example (token exchange + MCP calls through the gateway). `agentpass/dev_stub_store.py` is a dev-only stand-in store that follows the store contract.
 - Keep changes small and commit often from your own GitHub account. Write clear commit messages.
 - No pre-written code, copied projects or one-shot app generators (hackathon rules). Every author must be able to explain their code to the judges.
 - Scope: build P0 first (`docs/implementation-plan.md`, section 3). Don't add features beyond the plan without telling the team.
