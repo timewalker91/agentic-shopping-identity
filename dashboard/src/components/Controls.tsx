@@ -103,7 +103,7 @@ export function Stats({ session, events }: { session: Session; events: AuditEven
             <span className="stat-n mono red">{Math.max(0, Math.round(exp - Date.parse(refused.ts) / 1000))} s</span>
             <span className="stat-l">
               still left on the token when its next call was refused: revocation doesn't wait for expiry
-              (refused {seconds(Date.parse(refused.ts) - revokedAt)} after the revoke)
+              (that call came {seconds(Date.parse(refused.ts) - revokedAt)} after the revoke)
             </span>
           </>
         ) : (

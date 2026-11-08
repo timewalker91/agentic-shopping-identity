@@ -21,6 +21,9 @@ const RULES: Array<[RegExp, string]> = [
 
 export function plainReason(e: AuditEvent): string {
   // A call that hit an already-revoked session (checked before the rules: its reason repeats the revoke cause).
+  // A refused checkout never reaches the store, so the owner's saved address and payment are never used.
+  if (e.decision === "revoked" && e.layer === "revocation" && e.tool === "checkout")
+    return "Refused at the gateway: no order placed; your address and card were never used";
   if (e.decision === "revoked" && e.layer === "revocation" && e.tool !== "stop") return "Refused: session already revoked";
   if (e.decision === "revoked" && e.layer === "risk") return "Agent revoked automatically: 2 policy violations";
   const paid = /^paid (\$[\d.,]+)/.exec(e.reason);

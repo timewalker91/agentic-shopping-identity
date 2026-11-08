@@ -27,14 +27,32 @@ Everything needed to run the live demo on the demo laptop (Jack's), plus the fal
 
 ## 2. The 4-minute run
 
-The dashboard follows the newest session by itself; nobody has to click between runs.
+Two lines, as agreed with Larry: a **normal flow** and a **revoke flow**, plus the hijack as a short ending (team to confirm). The dashboard follows the newest session by itself; nobody has to click between runs. Suggested timing: intro 0:30 → Line 1 1:00 → Line 2 1:15 → hijack 0:30 → close 0:45.
+
+**Line 1: normal flow (authenticate → browse → order)**
 
 | Step | Type in the Terminal | What the audience sees |
 |---|---|---|
-| **A. A real agent shops** (about 20 s) | `uv run python -m agent session start` then `uv run python -m agent shop "Buy notebooks and pens for school" --driver bedrock` | Passport card (agent acting for parent, 5-minute countdown), green decisions, budget gauge moves, order paid |
-| **B. The agent gets hijacked** (about 15 s) | `uv run python -m agent session start` then `uv run python -m agent shop --scenario hijacked --step-delay 1.5` | Reads the poisoned listing → gift card **blocked** → attacker address **blocked** → **REVOKED** stamp → next call refused |
-| **C. A stolen token is useless** | `uv run python -m agent replay --expect 401` | `HTTP 401` while the token still has ~295 s left |
-| *D. Optional: Stop button* | `uv run python -m agent session start` then `uv run python -m agent shop --scenario stop` | Presenter presses **Stop agent** mid-task → "REVOKED by the parent" → next call refused in under a second |
+| 1a. Authenticate | `uv run python -m agent session start` | Passport card: agent `agent_shopper_v1` acting for `parent`, $50 mandate, ships only to `addr_home`, 5:00 countdown |
+| 1b. Selected tools only | `uv run python -m agent tools` | Only 6 shopper tools; "buy gift card" and "change address" are not even listed |
+| 1c. The real agent shops (about 20 s) | `uv run python -m agent shop "Buy notebooks and pens for school" --driver bedrock` | Green decisions: search → add to cart → checkout paid; budget gauge moves |
+
+**Line 2: revoke flow (explicit revoke → the agent fails → personal data can't be used)**
+
+| Step | Type / do | What the audience sees |
+|---|---|---|
+| 2a. Start shopping | `uv run python -m agent session start` then `uv run python -m agent shop --scenario stop` | The agent fills the cart, then prints *"about to check out: this uses the owner's saved address (addr_home) and payment … press Stop now"* and waits 8 s |
+| 2b. **Explicit revoke** | Presenter clicks **Stop agent** on the dashboard during the wait | **REVOKED by the parent** stamp; the countdown keeps running |
+| 2c. The agent fails | (automatic) | Checkout → **401**: *"Refused at the gateway: no order placed; your address and card were never used"*. Budget stays at $0 spent. Terminal: *"agent stops: the passport was revoked, no retry"* |
+| 2d. A copied token is useless | `uv run python -m agent replay --expect 401` | `HTTP 401` while the token still has ~280 s left |
+
+**Say this at 2c:** "The agent never had the address or the card: it only knows the ID `addr_home`. The owner's data stays on the server, and a revoked agent can't make anyone use it."
+
+**Ending (30 s, recommended): the hijacked agent**
+
+| Step | Type in the Terminal | What the audience sees |
+|---|---|---|
+| 3. Hijack → automatic revoke | `uv run python -m agent session start` then `uv run python -m agent shop --scenario hijacked --step-delay 1.5` | Reads the poisoned listing → gift card **blocked** → attacker address **blocked** → **REVOKED automatically** → next call refused; **$0 lost** |
 
 **Say this at step B:** "In our tests, real Claude Sonnet 5 refused this injection. Good, but you can't bet a credit card on every model resisting every attack. So this is a simulated hijacked agent, and the identity layer stops it no matter what the model does."
 

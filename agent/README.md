@@ -17,7 +17,7 @@ agent shop --scenario happy                           # S1: search, add, checkou
 agent shop --scenario over_budget                     # S2: $89 denied by the budget, cheaper cart paid
 agent session start && agent shop --scenario hijacked # S3: poisoned listing -> 2 denials -> auto-revoke -> 401
 agent replay --expect 401                             # the copied token is replayed: 401
-agent session start && agent shop --scenario stop --step-delay 3   # S6: press Stop on the dashboard meanwhile
+agent session start && agent shop --scenario stop   # S6: press Stop while it waits before checkout
 agent session stop                                    # Stop from the command line
 agent audit                                           # the session's audit events
 agent demo reset

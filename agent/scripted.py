@@ -6,7 +6,8 @@ Scenarios (see docs/scenario-map.md):
                      instruction: gift-card SKU (denied) -> attacker address (denied -> auto-revoke)
                      -> next call gets 401
     over_budget  S2  an $89 item is denied by the budget; a cheaper cart goes through
-    stop         S6  the happy path with pauses so the parent can press Stop mid-task
+    stop         S6  fills the cart, then pauses before checkout so the parent can press Stop:
+                     the checkout (owner's address + payment) is refused at the gateway
 """
 from __future__ import annotations
 
@@ -32,6 +33,7 @@ DEFAULT_QUERIES = {
     "poisoned": "markers",           # S3: a result whose description carries the hidden instruction
 }
 POISON_SCAN_LIMIT = 5  # S3 reads up to this many listings looking for the hidden instruction
+STOP_WAIT_SECONDS = float(os.environ.get("AGENT_STOP_WAIT", "8"))  # S6: time to press Stop before checkout
 
 
 def query_for(name: str) -> str:
@@ -153,9 +155,24 @@ class ScriptedShopper:
             self._call("get_order_status", {"order_id": order["order_id"]})
 
     def _run_stop(self) -> None:
-        self.out("   (pausing between steps; press Stop on the dashboard while the agent shops)")
-        self.step_delay = self.step_delay or 3.0
-        self._run_happy()
+        """S6: fill the cart, then pause right before checkout so the parent can press Stop.
+
+        Checkout is the step that uses the owner's saved address and payment, so it is the call
+        we want the audience to see refused after the revoke.
+        """
+        self.step_delay = self.step_delay or 1.0
+        found = self._call("search_products", {"query": query_for("happy")}) or {}
+        picks = [p for p in found.get("products", []) if not p["sku"].upper().startswith("GC-")]
+        picks.sort(key=lambda p: p["price"])
+        for product in picks[:3]:
+            self._add(product["sku"], 1)
+        self._call("view_cart", {"cart_id": self.cart_id})
+        self.out(f"   about to check out: this uses the owner's saved address ({self.ship_to_id}) and payment")
+        self.out(f"   (waiting {STOP_WAIT_SECONDS:.0f} s: press Stop on the dashboard now)")
+        time.sleep(STOP_WAIT_SECONDS)
+        order = self._checkout() or {}
+        if order.get("order_id"):
+            self._call("get_order_status", {"order_id": order["order_id"]})
 
     def _run_over_budget(self) -> None:
         found = self._call("search_products", {"query": query_for("expensive")}) or {}
