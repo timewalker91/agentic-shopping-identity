@@ -29,6 +29,8 @@ AI shopping agents can now check out on their own, but today they act with the u
 
 *Left: the real Claude agent buys within budget. Right: the parent pressed Stop, and the agent's next call was refused.*
 
+**Full demo video (1:52):** [`docs/media/aide-commerce-demo.mp4`](docs/media/aide-commerce-demo.mp4): normal purchase by the real Claude agent, the parent presses Stop before checkout, a copied token is refused, and a hijacked agent is revoked automatically.
+
 ## How it works
 
 ![Architecture](docs/architecture/aide-commerce-architecture.png)
