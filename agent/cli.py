@@ -24,7 +24,7 @@ import httpx
 from agentpass.config import load_dotenv
 
 from .broker import BrokerError, CredentialBroker
-from .mcp_client import GatewayClient, GatewayError, ToolError
+from .mcp_client import GatewayClient, GatewayError, SessionRevokedError, ToolError
 from .scripted import ScriptedShopper
 
 
@@ -297,6 +297,13 @@ def main(argv: list[str] | None = None) -> None:
         code = args.func(args)
     except BrokerError as exc:
         print(f"error: {exc.reason}: {exc.message}", file=sys.stderr)
+        code = 1
+    except SessionRevokedError as exc:  # revoked before or during the command: say so, no traceback
+        print(f"   x {exc.status} {exc.reason}: {exc.message}")
+        print("   agent stops: the passport was revoked, no retry")
+        code = 1
+    except GatewayError as exc:
+        print(f"   x {exc.status} {exc.reason}: {exc.message}")
         code = 1
     except httpx.HTTPError as exc:
         print(f"error: cannot reach {args.api}: {exc}", file=sys.stderr)
