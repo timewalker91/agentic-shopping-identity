@@ -32,3 +32,6 @@ cdk.out/
 .DS_Store
 .idea/
 .vscode/
+
+# Local agent key (local mode)
+.local/

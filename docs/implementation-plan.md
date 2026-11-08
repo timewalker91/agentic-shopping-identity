@@ -88,25 +88,27 @@ Recurring mandates, parental approval queue, virtual cards / Stripe, CAEP events
 
 **Processes and ports.** `agentpass` FastAPI (token service + gateway + control API) on `:8000` · `store` MCP server on `:8100` (reachable only by the gateway) · `dashboard` Vite on `:5173` · `agent` command-line client. Region `us-east-1`.
 
-**Token exchange: Larry's credential broker → Jack's token service.** Taken from the Architecture Design; *needs Larry's sign-off*.
+**Token exchange: Larry's credential broker → the token service.** *As implemented* (Larry's code + the agent-identity fix, 2026-11-07 17:50).
 
 `POST :8000/oauth2/token`, form-encoded:
 
 | Field | Value |
 |---|---|
 | `grant_type` | `urn:ietf:params:oauth:grant-type:token-exchange` |
-| `subject_token` | the user's Cognito access token |
-| `subject_token_type` | `urn:ietf:params:oauth:token-type:access_token` |
-| `actor_token` | client assertion JWT signed with the agent's KMS key: `iss` = `sub` = `agent_shopper_v1`, `aud` = `http://localhost:8000/oauth2/token`, `exp` ≤ 60 s, unique `jti` |
-| `actor_token_type` | `urn:ietf:params:oauth:token-type:jwt` |
-| `audience` | `agentpass-gateway` |
-| `scope` | `catalog:read cart:write checkout:execute` |
-| `session_id` | the `sid` from `POST /sessions` |
+| `subject_token` | the user's id token (Cognito in aws mode) |
+| `subject_token_type` | `urn:ietf:params:oauth:token-type:id_token` |
+| `actor_token` | client assertion signed (ES256) with **the agent's own key**: `iss` = `sub` = `agent_shopper_v1`, `aud` = `agentpass-token-service`, at most 60 s, unique single-use `jti` |
+| `actor_token_type` | `urn:ietf:params:oauth:token-type:jwt` (a bare agent name is rejected with `actor_token_required`) |
+| `sid` | the `sid` from `POST /sessions` |
 
-- **Response:** `{"access_token": "...", "token_type": "Bearer", "expires_in": 300}`.
-- **Errors:** 400 `invalid_grant` with a reason.
-- The broker re-runs the exchange when fewer than 60 s remain.
-- `infra/setup.py` (Jack) creates the agent's KMS key under the alias `alias/agentpass-agent-shopper-v1` and prints its ARN for Larry.
+- **Response:** `{"access_token": "...", "token_type": "Bearer", "expires_in": 300, "claims": {...}}`.
+- **Errors:**
+  - 401 `invalid_client` for agent-auth failures: `invalid_actor_token`, `unknown_agent`, `actor_token_replayed` or `actor_token_expired`.
+  - 401 `invalid_grant` for user, session or revocation failures.
+- The broker (`agent/broker.py`) signs a fresh assertion for every exchange and refreshes the passport before it expires.
+- **Agent key:**
+  - aws mode: `infra/setup.py` creates KMS key `alias/agentpass-agent-shopper-v1-ec` (ECC P-256) and writes `AGENTPASS_AGENT_KMS_KEY_ID` to `.env`.
+  - local mode: `.local/agent_shopper_v1.pem`.
 
 **Delegated token claims** (as in the Architecture Design; flat claims so Cedar can read them):
 

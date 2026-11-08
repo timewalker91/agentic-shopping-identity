@@ -3,13 +3,13 @@
 Short answers, grounded in our code. Practice saying each answer in under 30 seconds. "**Show:**" names the file to open if a judge wants to see it.
 
 ## Numbers to remember
-Measured on the demo laptop (Santa Clara → AWS us-east-1) with `uv run python -m agentpass.measure`:
+Measured in **AWS mode** (KMS, Cognito, DynamoDB) on the demo laptop, Santa Clara → us-east-1, with `uv run python -m agentpass.measure`:
 
 | What | Result |
 |---|---|
-| **Stop pressed → agent's next call refused** | **~0.4 s**, while the token still had **296 of 300 s** left |
-| Every tool call checked by the gateway (server side, including the store call) | ~160 ms median; most of it is the network hop to Virginia |
-| Token exchange (KMS signing + 6 checks) | ~0.5 s, once per 5 minutes per agent, not per call |
+| **Stop pressed → agent's next call refused** | **~0.7 s**, while the token still had **294 of 300 s** left |
+| Allowed tool call, agent → gateway → store and back | ~420 ms median; most of it is DynamoDB round trips from California to Virginia |
+| Token exchange (agent signs its assertion in KMS, we sign the passport in KMS) | ~1 s, once per 5 minutes per agent, not per call |
 | Delegated token lifetime | 5 minutes |
 | Auto-revoke threshold | 2 policy denials in one session |
 
@@ -21,7 +21,7 @@ Two proofs, combined in one token exchange (RFC 8693):
 - A one-time assertion signed by **the agent's own KMS key**, so the private key never leaves KMS.
 
 If both check out, we issue a 5-minute token that names the user (`sub`), the agent (`act`), the session and the mandate.
-**Show:** `agentpass/token_service.py`, `issue_delegated_token`.
+**Show:** `agentpass/agent_identity.py` (`AgentRegistry.verify`) and `agentpass/token_service.py` (`token_exchange`).
 
 **2. Why not just give the agent the user's token?**
 Then every action looks like the human did it. We couldn't revoke the agent without logging the human out, couldn't limit it to shopping tools, and couldn't tell in the audit log who acted. Our token carries both identities.
@@ -36,7 +36,7 @@ It only works against our gateway (audience), only for 5 minutes, and we can rev
 
 **5. JWTs are stateless. How is revocation immediate?**
 The gateway checks a revocation list in DynamoDB on **every** tool call, with a strongly consistent read. The 5-minute lifetime only limits exposure; the list is what makes Stop instant. Measured: refused within ~0.4 s while the token still had 296 s left.
-**Show:** `agentpass/gateway.py`, `check_revocation`.
+**Show:** `agentpass/gateway.py`, `_check_revocation`.
 
 **6. What if DynamoDB is down?**
 We **fail closed**: if the revocation list can't be read, the call is denied.
@@ -64,7 +64,7 @@ Going over budget is usually an honest mistake, not an attack. The agent gets `o
 
 **12. Can the agent lie about the price?**
 No. The budget check uses the cart total computed by the store and read from DynamoDB, never a number the agent sends. A conditional write places a hold, so two checkouts at once can't overspend.
-**Show:** `agentpass/gateway.py`, `place_budget_hold`.
+**Show:** `agentpass/gateway.py` `_checkout` and `agentpass/storage.py` `try_hold`.
 
 **13. Can the agent skip the gateway and call the store directly?**
 In the demo, the store listens only on localhost, and only the gateway knows its address. In production, the store accepts calls only from the gateway's identity, for example an IAM resource policy that allows only the gateway role.

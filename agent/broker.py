@@ -18,10 +18,12 @@ from typing import Any
 import httpx
 import jwt
 
+from agentpass.agent_identity import ACTOR_TOKEN_TYPE, agent_signer_from_env, make_assertion
+from agentpass.signer import Signer
+
 DEFAULT_STATE = Path.home() / ".agentpass" / "agent-state.json"
 GRANT_TYPE = "urn:ietf:params:oauth:grant-type:token-exchange"
 SUBJECT_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:id_token"
-ACTOR_TOKEN_TYPE = "urn:agentpass:params:oauth:token-type:agent-id"
 REFRESH_MARGIN_SECONDS = 15
 
 
@@ -34,9 +36,17 @@ class BrokerError(Exception):
 
 
 class CredentialBroker:
-    def __init__(self, api_url: str, state_path: Path | None = None, agent_id: str = "agent_shopper_v1") -> None:
+    def __init__(
+        self,
+        api_url: str,
+        state_path: Path | None = None,
+        agent_id: str = "agent_shopper_v1",
+        agent_signer: Signer | None = None,
+    ) -> None:
         self.api_url = api_url.rstrip("/")
         self.agent_id = agent_id
+        # The agent's own key: KMS (AGENTPASS_AGENT_KMS_KEY_ID) or the local key file. Loaded lazily.
+        self._agent_signer = agent_signer
         self._path = state_path or Path(os.environ.get("AGENT_STATE_FILE") or DEFAULT_STATE)
         self._http = httpx.Client(base_url=self.api_url, timeout=20.0)
         self.state: dict[str, Any] = self._load()
@@ -126,16 +136,21 @@ class CredentialBroker:
         return data
 
     def exchange(self) -> dict:
-        """RFC 8693 token exchange: user id token + agent id + session -> delegated token (5 min)."""
+        """RFC 8693 token exchange: user id token + signed agent assertion + session -> passport (5 min).
+
+        The agent authenticates with a fresh, single-use assertion signed by its own key (RFC 7523).
+        """
         if not self.sid:
             raise BrokerError("no_session", "run `agent session start` first")
+        if self._agent_signer is None:
+            self._agent_signer = agent_signer_from_env()
         resp = self._http.post(
             "/oauth2/token",
             data={
                 "grant_type": GRANT_TYPE,
                 "subject_token": self.state.get("id_token", ""),
                 "subject_token_type": SUBJECT_TOKEN_TYPE,
-                "actor_token": self.agent_id,
+                "actor_token": make_assertion(self._agent_signer, self.agent_id),
                 "actor_token_type": ACTOR_TOKEN_TYPE,
                 "sid": self.sid,
             },

@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from . import control, gateway, token_service
+from .agent_identity import AgentRegistry, local_agent_signer
 from .config import Settings, load_dotenv
 from .policy import PolicyEngine
 from .risk import ViolationCounter
@@ -29,6 +30,7 @@ def create_app(
     signer: Signer | None = None,
     user_auth: Any = None,
     store: StoreClient | None = None,
+    agent_jwks: dict[str, dict] | None = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
     if settings.mode == "aws":
@@ -45,11 +47,19 @@ def create_app(
         repo = repo or MemoryRepo()
         user_auth = user_auth or LocalUserAuth(settings.local_users, signer)
 
+    # Registered agents -> public key. The agent proves its identity by signing with the private half.
+    if agent_jwks is None:
+        if settings.mode == "aws":
+            agent_jwks = {settings.agent_id: KmsSigner(settings.agent_kms_key_id or "", settings.region).public_jwk()}
+        else:
+            agent_jwks = {settings.agent_id: local_agent_signer(settings.agent_key_file).public_jwk()}
+
     app = FastAPI(title="Aide-commerce", version="0.1.0", docs_url="/docs")
     app.state.settings = settings
     app.state.signer = signer
     app.state.repo = repo
     app.state.user_auth = user_auth
+    app.state.agents = AgentRegistry(agent_jwks)
     app.state.verifier = TokenVerifier([signer.public_jwk()], settings.issuer, settings.audience)
     app.state.policy = PolicyEngine.load_default()
     app.state.store = store or StoreClient(settings.store_url)
@@ -79,6 +89,7 @@ def create_app(
             "signing_key": signer.kid,
             "store_url": app.state.store.url,
             "agent_id": settings.agent_id,
+            "agent_key": app.state.agents.kid(settings.agent_id),
         }
 
     log.info("agentpass mode=%s signer=%s store=%s", settings.mode, signer.kid, app.state.store.url)

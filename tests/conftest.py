@@ -5,6 +5,7 @@ are the same ones the agent CLI and the dashboard use.
 """
 from __future__ import annotations
 
+import os
 import socket
 import threading
 import time
@@ -14,6 +15,7 @@ import httpx
 import pytest
 import uvicorn
 
+from agentpass.agent_identity import ACTOR_TOKEN_TYPE, local_agent_signer, make_assertion
 from agentpass.config import Settings
 from agentpass.main import create_app
 from store.server import create_app as create_store_app
@@ -55,8 +57,24 @@ def store_url():
 
 
 @pytest.fixture(scope="session")
-def settings(store_url) -> Settings:
-    return Settings(mode="local", store_url=store_url, local_users={"parent": "parent-pass"}, demo_budget_cents=5000)
+def agent_key_file(tmp_path_factory) -> Path:
+    """One agent key for the whole run, shared by the server, the harness and CredentialBroker."""
+    path = tmp_path_factory.mktemp("agent-key") / "agent_shopper_v1.pem"
+    os.environ["AGENTPASS_AGENT_KEY_FILE"] = str(path)
+    os.environ.pop("AGENTPASS_AGENT_KMS_KEY_ID", None)
+    local_agent_signer(path)  # create it
+    return path
+
+
+@pytest.fixture(scope="session")
+def settings(store_url, agent_key_file) -> Settings:
+    return Settings(
+        mode="local",
+        store_url=store_url,
+        local_users={"parent": "parent-pass"},
+        demo_budget_cents=5000,
+        agent_key_file=str(agent_key_file),
+    )
 
 
 @pytest.fixture(scope="session")
@@ -71,8 +89,9 @@ def api_url(settings):
 class Harness:
     """The login -> session -> token exchange -> MCP flow, as plain HTTP calls."""
 
-    def __init__(self, http: httpx.Client) -> None:
+    def __init__(self, http: httpx.Client, agent_key_file: Path | None = None) -> None:
         self.http = http
+        self.agent_signer = local_agent_signer(agent_key_file)
         self.id_token = ""
         self.user_headers: dict[str, str] = {}
         self.mandate_id = ""
@@ -98,15 +117,19 @@ class Harness:
         assert resp.status_code == 201, resp.text
         return resp.json()["sid"]
 
-    def exchange(self, sid: str) -> httpx.Response:
+    def assertion(self, agent_id: str = "agent_shopper_v1") -> str:
+        """A fresh client assertion signed with the agent's key (what the credential broker sends)."""
+        return make_assertion(self.agent_signer, agent_id)
+
+    def exchange(self, sid: str, actor_token: str | None = None, actor_token_type: str = ACTOR_TOKEN_TYPE) -> httpx.Response:
         return self.http.post(
             "/oauth2/token",
             data={
                 "grant_type": GRANT,
                 "subject_token": self.id_token,
                 "subject_token_type": "urn:ietf:params:oauth:token-type:id_token",
-                "actor_token": "agent_shopper_v1",
-                "actor_token_type": "urn:agentpass:params:oauth:token-type:agent-id",
+                "actor_token": actor_token if actor_token is not None else self.assertion(),
+                "actor_token_type": actor_token_type,
                 "sid": sid,
             },
         )
@@ -146,9 +169,9 @@ class Harness:
 
 
 @pytest.fixture
-def harness(api_url):
+def harness(api_url, agent_key_file):
     with httpx.Client(base_url=api_url, timeout=30) as http:
-        h = Harness(http)
+        h = Harness(http, agent_key_file)
         h.login()
         h.reset()
         yield h

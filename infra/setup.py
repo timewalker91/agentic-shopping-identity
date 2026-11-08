@@ -25,9 +25,10 @@ TABLES: dict[str, list[tuple[str, str]]] = {
     "sessions": [("sid", "HASH")],
     "revocations": [("key", "HASH")],
     "store": [("pk", "HASH")],
-    "audit": [("sid", "HASH"), ("ts_id", "RANGE")],
+    "audit": [("sid", "HASH"), ("sk", "RANGE")],
 }
 KMS_ALIAS = "alias/agentpass-token-signing"
+AGENT_KMS_ALIAS = "alias/agentpass-agent-shopper-v1-ec"  # the agent's own identity key
 POOL_NAME = "agentpass-users"
 CLIENT_NAME = "agentpass-dashboard"
 
@@ -56,25 +57,31 @@ def ensure_tables(prefix: str) -> list[str]:
     waiter = ddb.get_waiter("table_exists")
     for name in created:
         waiter.wait(TableName=name)
+    try:  # used agent-assertion ids (assertion#<jti>) expire on their own
+        ddb.update_time_to_live(TableName=f"{prefix}revocations",
+                                TimeToLiveSpecification={"Enabled": True, "AttributeName": "ttl"})
+    except ClientError as exc:
+        if "already enabled" not in str(exc):
+            raise
     return created
 
 
-def ensure_kms_key() -> str:
+def ensure_kms_key(alias_name: str = KMS_ALIAS, description: str = "Aide-commerce delegated token signing key (ES256)") -> str:
     kms = boto3.client("kms", region_name=REGION)
     paginator = kms.get_paginator("list_aliases")
     for page in paginator.paginate():
         for alias in page.get("Aliases", []):
-            if alias.get("AliasName") == KMS_ALIAS and alias.get("TargetKeyId"):
-                print(f"  kms key {KMS_ALIAS}: exists ({alias['TargetKeyId']})")
+            if alias.get("AliasName") == alias_name and alias.get("TargetKeyId"):
+                print(f"  kms key {alias_name}: exists ({alias['TargetKeyId']})")
                 return alias["TargetKeyId"]
     key = kms.create_key(
-        Description="Aide-commerce delegated token signing key (ES256)",
+        Description=description,
         KeyUsage="SIGN_VERIFY",
         KeySpec="ECC_NIST_P256",
         Tags=[{"TagKey": t["Key"], "TagValue": t["Value"]} for t in TAGS],
     )["KeyMetadata"]
-    kms.create_alias(AliasName=KMS_ALIAS, TargetKeyId=key["KeyId"])
-    print(f"  kms key {KMS_ALIAS}: created ({key['KeyId']})")
+    kms.create_alias(AliasName=alias_name, TargetKeyId=key["KeyId"])
+    print(f"  kms key {alias_name}: created ({key['KeyId']})")
     return key["KeyId"]
 
 
@@ -167,6 +174,7 @@ def main() -> None:
     ensure_tables(args.table_prefix)
     print("KMS")
     key_id = ensure_kms_key()
+    agent_key_id = ensure_kms_key(AGENT_KMS_ALIAS, "Aide-commerce agent identity key: agent_shopper_v1 signs its client assertions (ES256)")
     print("Cognito")
     pool_id, client_id = ensure_user_pool()
     ensure_user(pool_id, args.demo_user, args.demo_password)
@@ -176,6 +184,7 @@ def main() -> None:
         "AWS_REGION": REGION,
         "AGENTPASS_TABLE_PREFIX": args.table_prefix,
         "AGENTPASS_KMS_KEY_ID": key_id,
+        "AGENTPASS_AGENT_KMS_KEY_ID": agent_key_id,
         "COGNITO_USER_POOL_ID": pool_id,
         "COGNITO_CLIENT_ID": client_id,
     }

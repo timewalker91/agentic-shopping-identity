@@ -4,9 +4,12 @@ POST /oauth2/token (form or JSON)
     grant_type         = urn:ietf:params:oauth:grant-type:token-exchange
     subject_token      = the user's id token (Cognito, or local in local mode)
     subject_token_type = urn:ietf:params:oauth:token-type:id_token
-    actor_token        = the agent id (agent_shopper_v1)
-    actor_token_type   = urn:agentpass:params:oauth:token-type:agent-id
+    actor_token        = a client assertion signed by the agent's own key (KMS in aws mode):
+                         iss = sub = agent id, aud = agentpass-token-service, <= 60 s, single-use jti
+    actor_token_type   = urn:ietf:params:oauth:token-type:jwt
     sid                = the session from POST /sessions
+
+The passport names both identities: sub = the user, act.sub = the authenticated agent.
 
 The exchange fails for a revoked session, user, agent or mandate, so "block subsequent
 requests" also covers getting a fresh token.
@@ -16,6 +19,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from .agent_identity import ACTOR_TOKEN_TYPE, AgentAuthError
 from .audit import new_event
 from .clock import now_iso
 from .revocation import keys_for_exchange
@@ -54,20 +58,36 @@ async def token_exchange(request: Request) -> JSONResponse:
         return _fail(400, "unsupported_grant_type", "unsupported_grant_type", f"grant_type must be {GRANT_TYPE}")
     subject_token = params.get("subject_token")
     sid = params.get("sid")
-    actor = params.get("actor_token") or settings.agent_id
+    actor_token = params.get("actor_token")
     if not subject_token or not sid:
         return _fail(400, "invalid_request", "invalid_request", "subject_token and sid are required")
+    if not actor_token or params.get("actor_token_type") != ACTOR_TOKEN_TYPE:
+        return _fail(400, "invalid_request", "actor_token_required",
+                     f"the agent must authenticate with a signed actor_token ({ACTOR_TOKEN_TYPE})")
 
     try:
         identity = state.user_auth.verify(subject_token)
     except UserAuthError as exc:
         return _fail(401, "invalid_grant", "invalid_subject_token", exc.message)
 
+    # The agent proves who it is: an assertion signed by its own key, single use (RFC 7523).
+    try:
+        actor = state.agents.verify(actor_token, state.repo.use_once)
+    except AgentAuthError as exc:
+        owned = state.repo.get_session(sid)
+        if owned is not None and owned.get("user") == identity.sub:  # show it on this user's dashboard
+            state.repo.append_audit(new_event(
+                sid=sid, agent_id="unverified", user=identity.username, tool="token_exchange",
+                decision="deny", reason=f"agent authentication failed: {exc.reason}", layer="token",
+                args={"sid": sid}, latency_ms=0,
+            ))
+        return _fail(401, "invalid_client", exc.reason, exc.message)
+
     session = state.repo.get_session(sid)
     if session is None or session.get("user") != identity.sub:
         return _fail(401, "invalid_grant", "unknown_session", f"no session {sid} for this user")
     if actor != session.get("agent_id"):
-        return _fail(401, "invalid_grant", "agent_mismatch", "actor_token does not match the session's agent")
+        return _fail(401, "invalid_grant", "agent_mismatch", "the authenticated agent is not this session's agent")
 
     def audit(decision: str, layer: str, reason: str) -> None:
         state.repo.append_audit(

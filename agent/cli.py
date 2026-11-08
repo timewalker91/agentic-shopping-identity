@@ -135,7 +135,7 @@ def cmd_shop(args: argparse.Namespace) -> int:
         budget = broker.mandate().get("remaining", 0.0)
         shopper = BedrockShopper(
             gateway,
-            model_id=args.model or os.environ.get("BEDROCK_MODEL_ID", "anthropic.claude-opus-5-5"),
+            model_id=args.model or os.environ.get("BEDROCK_MODEL_ID", "us.anthropic.claude-sonnet-5"),
             region=os.environ.get("AWS_REGION", "us-east-1"),
             cart_id=cart_id,
             merchant=claims["merchant"],

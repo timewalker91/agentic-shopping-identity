@@ -11,6 +11,7 @@ gateway can fail closed.
 from __future__ import annotations
 
 import threading
+import time
 from decimal import Decimal
 from typing import Any, Protocol
 
@@ -37,6 +38,7 @@ class Repo(Protocol):
     # revocations (ap_revocations)
     def revoke(self, key: str, reason: str, by: str) -> None: ...
     def find_revoked(self, keys: list[str]) -> dict | None: ...
+    def use_once(self, key: str, ttl_seconds: int) -> bool: ...
     # audit (ap_audit)
     def append_audit(self, event: dict) -> None: ...
     def list_audit(self, sid: str, after: str | None = None, limit: int = 500) -> list[dict]: ...
@@ -127,6 +129,16 @@ class MemoryRepo:
                     return dict(hit)
         return None
 
+    def use_once(self, key: str, ttl_seconds: int) -> bool:
+        """Record a single-use value (an agent assertion's jti). False if it was already used."""
+        now = time.time()
+        with self._lock:
+            self._used = {k: exp for k, exp in getattr(self, "_used", {}).items() if exp > now}
+            if key in self._used:
+                return False
+            self._used[key] = now + ttl_seconds
+            return True
+
     def append_audit(self, event: dict) -> None:
         with self._lock:
             self._audit.setdefault(event["sid"], []).append(dict(event))
@@ -198,23 +210,39 @@ class DynamoRepo:
         return self._scan_for_user(self._mandates, user)
 
     def try_hold(self, mandate_id: str, cents: int) -> tuple[bool, int]:
+        """Place a budget hold. DynamoDB conditions can't do arithmetic, so: read the mandate,
+        check the limit in code, then update only if spent/held/max still have the values we
+        read (optimistic concurrency). Two concurrent checkouts can never both pass."""
         from botocore.exceptions import ClientError
 
-        try:
-            resp = self._mandates.update_item(
-                Key={"mandate_id": mandate_id},
-                UpdateExpression="SET held_cents = held_cents + :c",
-                ConditionExpression="#st = :active AND spent_cents + held_cents + :c <= max_cents",
-                ExpressionAttributeNames={"#st": "status"},
-                ExpressionAttributeValues={":c": cents, ":active": "active"},
-                ReturnValues="ALL_NEW",
-            )
-        except ClientError as exc:
-            if exc.response["Error"]["Code"] != "ConditionalCheckFailedException":
-                raise
-            current = self.get_mandate(mandate_id)
-            return False, max(_remaining(current), 0) if current else 0
-        return True, _remaining(_plain(resp["Attributes"]))
+        for _ in range(3):
+            m = self.get_mandate(mandate_id)
+            if m is None:
+                return False, 0
+            remaining = _remaining(m)
+            if m.get("status") != "active" or cents > remaining:
+                return False, max(remaining, 0)
+            try:
+                self._mandates.update_item(
+                    Key={"mandate_id": mandate_id},
+                    UpdateExpression="SET held_cents = :new_held",
+                    ConditionExpression="#st = :active AND spent_cents = :s AND held_cents = :h AND max_cents = :m",
+                    ExpressionAttributeNames={"#st": "status"},
+                    ExpressionAttributeValues={
+                        ":new_held": int(m["held_cents"]) + cents,
+                        ":s": int(m["spent_cents"]),
+                        ":h": int(m["held_cents"]),
+                        ":m": int(m["max_cents"]),
+                        ":active": "active",
+                    },
+                )
+                return True, remaining - cents
+            except ClientError as exc:
+                if exc.response["Error"]["Code"] != "ConditionalCheckFailedException":
+                    raise
+                # someone changed the budget since we read it: read again and retry
+        current = self.get_mandate(mandate_id)
+        return False, max(_remaining(current), 0) if current else 0
 
     def settle_hold(self, mandate_id: str, cents: int) -> None:
         self._mandates.update_item(
@@ -278,9 +306,22 @@ class DynamoRepo:
                 return _plain(found[key])
         return None
 
+    def use_once(self, key: str, ttl_seconds: int) -> bool:
+        """Conditional put: succeeds only the first time. Stored in ap_revocations with a TTL."""
+        try:
+            self._revocations.put_item(
+                Item={"key": key, "reason": "single-use value", "by": "token-service", "ts": now_iso(),
+                      "ttl": int(time.time()) + ttl_seconds},
+                ConditionExpression="attribute_not_exists(#k)",
+                ExpressionAttributeNames={"#k": "key"},
+            )
+            return True
+        except self._revocations.meta.client.exceptions.ConditionalCheckFailedException:
+            return False
+
     # -- audit ------------------------------------------------------------------------
     def append_audit(self, event: dict) -> None:
-        item = {**event, "ts_id": f"{event['ts']}#{event['id']}"}
+        item = {**event, "sk": f"{event['ts']}#{event['id']}"}
         self._audit.put_item(Item=_dynamo(item))
 
     def list_audit(self, sid: str, after: str | None = None, limit: int = 500) -> list[dict]:
@@ -288,7 +329,7 @@ class DynamoRepo:
 
         cond = Key("sid").eq(sid)
         if after:
-            cond = cond & Key("ts_id").gt(f"{after}#~")
+            cond = cond & Key("sk").gt(f"{after}#~")
         resp = self._audit.query(KeyConditionExpression=cond, Limit=limit, ScanIndexForward=True)
         return [_plain(item) for item in resp.get("Items", [])]
 
@@ -298,7 +339,7 @@ class DynamoRepo:
             (self._mandates, ("mandate_id",)),
             (self._sessions, ("sid",)),
             (self._revocations, ("key",)),
-            (self._audit, ("sid", "ts_id")),
+            (self._audit, ("sid", "sk")),
         ):
             items = self._scan_all(table)
             with table.batch_writer() as batch:

@@ -54,6 +54,8 @@ class Settings:
     agent_id: str = "agent_shopper_v1"
     tool_profile: str = "shopper_v1"
     kms_key_id: str | None = None
+    agent_kms_key_id: str | None = None  # aws mode: the agent's own KMS key (ECC_NIST_P256)
+    agent_key_file: str | None = None  # local mode: the agent's P-256 key (PEM), default .local/agent_shopper_v1.pem
     cognito_user_pool_id: str | None = None
     cognito_client_id: str | None = None
     cognito_client_secret: str | None = None
@@ -75,6 +77,9 @@ class Settings:
         mode = env.get("AGENTPASS_MODE") or ("aws" if (kms and pool and client) else "local")
         if mode not in ("local", "aws"):
             raise ValueError(f"AGENTPASS_MODE must be 'local' or 'aws', got {mode!r}")
+        agent_kms = env.get("AGENTPASS_AGENT_KMS_KEY_ID") or None
+        if mode == "aws" and not agent_kms:
+            raise ValueError("AGENTPASS_MODE=aws needs AGENTPASS_AGENT_KMS_KEY_ID (the agent's KMS key; run infra/setup.py)")
         if mode == "aws" and not (kms and pool and client):
             raise ValueError(
                 "AGENTPASS_MODE=aws needs AGENTPASS_KMS_KEY_ID, COGNITO_USER_POOL_ID and "
@@ -89,6 +94,8 @@ class Settings:
             store_url=env.get("AGENTPASS_STORE_URL", "http://127.0.0.1:8100/mcp"),
             token_ttl_seconds=int(env.get("AGENTPASS_TOKEN_TTL", "300")),
             kms_key_id=kms,
+            agent_kms_key_id=agent_kms,
+            agent_key_file=env.get("AGENTPASS_AGENT_KEY_FILE") or None,
             cognito_user_pool_id=pool,
             cognito_client_id=client,
             cognito_client_secret=env.get("COGNITO_CLIENT_SECRET") or None,
