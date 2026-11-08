@@ -27,6 +27,8 @@ Everything needed to run the live demo on the demo laptop (Jack's), plus the fal
 
 ## 2. The 4-minute run
 
+**Easiest: run `scripts/demo.sh`.** It walks through every step below, one Enter per step, with a caption for each.
+
 Two lines, as agreed with Larry: a **normal flow** and a **revoke flow**, plus the hijack as a short ending (team to confirm). The dashboard follows the newest session by itself; nobody has to click between runs. Suggested timing: intro 0:30 → Line 1 1:00 → Line 2 1:15 → hijack 0:30 → close 0:45.
 
 **Line 1: normal flow (authenticate → browse → order)**
@@ -35,7 +37,7 @@ Two lines, as agreed with Larry: a **normal flow** and a **revoke flow**, plus t
 |---|---|---|
 | 1a. Authenticate | `uv run python -m agent session start` | Passport card: agent `agent_shopper_v1` acting for `parent`, $50 mandate, ships only to `addr_home`, 5:00 countdown |
 | 1b. Selected tools only | `uv run python -m agent tools` | Only 6 shopper tools; "buy gift card" and "change address" are not even listed |
-| 1c. The real agent shops (about 20 s) | `uv run python -m agent shop "Buy notebooks and pens for school" --driver bedrock` | Green decisions: search → add to cart → checkout paid; budget gauge moves |
+| 1c. The real agent shops (about 20 s) | `uv run python -m agent shop "Buy one pack of notebooks and one pack of pens for school, then check out to my home address. Stay under budget." --driver bedrock` (say "check out" explicitly: with a vaguer goal Claude may stop and ask before paying) | Green decisions: search → add to cart → checkout paid; budget gauge moves |
 
 **Line 2: revoke flow (explicit revoke → the agent fails → personal data can't be used)**
 
