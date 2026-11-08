@@ -1,7 +1,7 @@
 [project]
 name = "agentpass"
 version = "0.1.0"
-description = "AgentPass: short-lived, KMS-signed identities for AI shopping agents, enforced on every MCP tool call"
+description = "Aide-commerce: short-lived, KMS-signed identities for AI shopping agents, enforced on every MCP tool call"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi>=0.115",

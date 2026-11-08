@@ -45,7 +45,7 @@ def create_app(
         repo = repo or MemoryRepo()
         user_auth = user_auth or LocalUserAuth(settings.local_users, signer)
 
-    app = FastAPI(title="AgentPass", version="0.1.0", docs_url="/docs")
+    app = FastAPI(title="Aide-commerce", version="0.1.0", docs_url="/docs")
     app.state.settings = settings
     app.state.signer = signer
     app.state.repo = repo

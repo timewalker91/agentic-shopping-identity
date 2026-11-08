@@ -19,7 +19,7 @@ def verify_access_token(token: str) -> dict:
         options={"require": ["exp", "iat", "sub"], "verify_aud": False},
     )
     if claims.get("token_use") != "access" or claims.get("client_id") != COGNITO_CLIENT_ID:
-        raise jwt.InvalidTokenError("not an AgentPass user access token")
+        raise jwt.InvalidTokenError("not an Aide-commerce user access token")
     return claims
 
 

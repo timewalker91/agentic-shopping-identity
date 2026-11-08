@@ -1,4 +1,4 @@
-# AgentPass: Agentic Shopping Identity
+# Aide-commerce: Agentic Shopping Identity
 
 > AWS x A10 Hack 2026, Santa Clara University · **A10 Track, Prompt 1: Agentic Identity**
 
@@ -57,7 +57,7 @@ Each folder's README has the details; `agentpass/README.md` documents the HTTP A
 | Jack Ning | @timewalker91 | Security core: infra, token service, gateway, Cedar policies, Control API |
 | Isabella Shen | @Isabellazzz | Dashboard (React) + Touch ID step-up page |
 | Larry Miao | | System architect: contracts, integration, quality gates; store + shopping agent; tests, demo environment |
-| Eric Wu | @edzwu9893 | Slides, business plan, demo, Devpost, Q&A |
+| Eric Wu | @edzwu9893 | Slides, demo, Devpost, Q&A |
 
 AI tools: read [`CLAUDE.md`](CLAUDE.md) and [`docs/implementation-plan.md`](docs/implementation-plan.md) first.
 

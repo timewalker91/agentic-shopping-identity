@@ -1,4 +1,4 @@
-# Judge Q&A Prep: AgentPass Security Core
+# Judge Q&A Prep: Aide-commerce Security Core
 
 Short answers, grounded in our code. Practice saying each answer in under 30 seconds. "**Show:**" names the file to open if a judge wants to see it.
 
@@ -89,7 +89,7 @@ With about 20 hours, we wanted full control and something we can explain line by
 - Each call is verified locally with the cached public key.
 
 **17. Why MCP?**
-MCP is the standard way agents call tools. Because we enforce at the protocol layer, AgentPass works with any MCP agent and any MCP tool server without changing them.
+MCP is the standard way agents call tools. Because we enforce at the protocol layer, Aide-commerce works with any MCP agent and any MCP tool server without changing them.
 
 ## About the build
 

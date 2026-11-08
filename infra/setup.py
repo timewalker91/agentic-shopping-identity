@@ -1,4 +1,4 @@
-"""Create the AWS resources AgentPass needs in us-east-1. Idempotent: safe to run again.
+"""Create the AWS resources Aide-commerce needs in us-east-1. Idempotent: safe to run again.
 
     source ~/.aws_workshop_env
     python -m infra.setup --demo-user parent --demo-password '<a strong password>'
@@ -68,7 +68,7 @@ def ensure_kms_key() -> str:
                 print(f"  kms key {KMS_ALIAS}: exists ({alias['TargetKeyId']})")
                 return alias["TargetKeyId"]
     key = kms.create_key(
-        Description="AgentPass delegated token signing key (ES256)",
+        Description="Aide-commerce delegated token signing key (ES256)",
         KeyUsage="SIGN_VERIFY",
         KeySpec="ECC_NIST_P256",
         Tags=[{"TagKey": t["Key"], "TagValue": t["Value"]} for t in TAGS],
@@ -151,7 +151,7 @@ def write_env(path: Path, values: dict[str, str]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Create AgentPass AWS resources (us-east-1)")
+    parser = argparse.ArgumentParser(description="Create Aide-commerce AWS resources (us-east-1)")
     parser.add_argument("--demo-user", default="parent")
     parser.add_argument("--demo-password", default=os.environ.get("AGENTPASS_DEMO_PASSWORD"))
     parser.add_argument("--table-prefix", default="ap_")

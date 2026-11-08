@@ -1,4 +1,4 @@
-// AgentPass tool policies. The same text drops into Amazon Bedrock AgentCore Policy unchanged.
+// Aide-commerce tool policies (Cedar namespace stays AgentPass). The same text drops into Amazon Bedrock AgentCore Policy unchanged.
 //
 //   principal = AgentPass::Agent::"<agent_id>"   attributes copied from the delegated token
 //   action    = AgentPass::Action::"<mcp tool>"
