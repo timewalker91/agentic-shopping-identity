@@ -24,7 +24,7 @@ step() {  # step "<caption>" <agent args...>: shows the caption and the command,
   agent "$@"
 }
 
-printf '%sAide-commerce live demo%s  (press Enter to run each step)\n' "$B" "$N"
+printf '%sAide-commerce live demo%s  (press Enter to run each step; click this window first)\n' "$B" "$N"
 printf '%sPress Enter to reset the demo (clean budget, no sessions)...%s' "$DIM" "$N"
 read -r _
 agent demo reset || { printf '%sNot logged in? Run: uv run python -m agent login%s\n' "$RE" "$N"; exit 1; }
@@ -35,8 +35,8 @@ step "It sees only 6 shopper tools: no gift cards, no address changes" tools
 step "A real Claude agent (Amazon Bedrock) shops within the \$50 mandate" shop "Buy one pack of notebooks and one pack of pens for school, then check out to my home address. Stay under budget." --driver bedrock
 
 title "$RE" "LINE 2 · REVOKE FLOW: explicit revoke, the agent fails, your data stays unused"
-step "A new task. When it says 'press Stop now', press Stop on the dashboard" session start
-step "The agent fills the cart, then waits before checking out" shop --scenario stop
+step "A new task: the agent starts shopping again (don't touch the dashboard yet)" session start
+step "The agent fills the cart, then pauses before paying: wait for the red PRESS STOP line" shop --scenario stop
 step "The copied token is useless now, even with minutes left on it" replay --expect 401
 
 title "$YE" "ENDING · A HIJACKED AGENT (simulated: real Claude refused this injection in our tests)"

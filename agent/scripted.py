@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import time
 from dataclasses import dataclass, field
 from typing import Callable
@@ -33,7 +34,7 @@ DEFAULT_QUERIES = {
     "poisoned": "markers",           # S3: a result whose description carries the hidden instruction
 }
 POISON_SCAN_LIMIT = 5  # S3 reads up to this many listings looking for the hidden instruction
-STOP_WAIT_SECONDS = float(os.environ.get("AGENT_STOP_WAIT", "8"))  # S6: time to press Stop before checkout
+STOP_WAIT_SECONDS = float(os.environ.get("AGENT_STOP_WAIT", "10"))  # S6: time to press Stop before checkout
 
 
 def query_for(name: str) -> str:
@@ -168,7 +169,8 @@ class ScriptedShopper:
             self._add(product["sku"], 1)
         self._call("view_cart", {"cart_id": self.cart_id})
         self.out(f"   about to check out: this uses the owner's saved address ({self.ship_to_id}) and payment")
-        self.out(f"   (waiting {STOP_WAIT_SECONDS:.0f} s: press Stop on the dashboard now)")
+        red, bold, reset = ("\033[31m", "\033[1m", "\033[0m") if sys.stdout.isatty() else ("", "", "")
+        self.out(f"   {red}{bold}>>> PRESS STOP on the dashboard now ({STOP_WAIT_SECONDS:.0f} s) <<<{reset}")
         time.sleep(STOP_WAIT_SECONDS)
         order = self._checkout() or {}
         if order.get("order_id"):

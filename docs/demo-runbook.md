@@ -43,8 +43,8 @@ Two lines, as agreed with Larry: a **normal flow** and a **revoke flow**, plus t
 
 | Step | Type / do | What the audience sees |
 |---|---|---|
-| 2a. Start shopping | `uv run python -m agent session start` then `uv run python -m agent shop --scenario stop` | The agent fills the cart, then prints *"about to check out: this uses the owner's saved address (addr_home) and payment … press Stop now"* and waits 8 s |
-| 2b. **Explicit revoke** | Presenter clicks **Stop agent** on the dashboard during the wait | **REVOKED by the parent** stamp; the countdown keeps running |
+| 2a. Start shopping | `uv run python -m agent session start` then `uv run python -m agent shop --scenario stop` | The agent fills the cart, then prints *"about to check out: this uses the owner's saved address (addr_home) and payment … PRESS STOP on the dashboard now (10 s)"* and waits 10 s |
+| 2b. **Explicit revoke** | Presenter clicks **Stop agent** on the dashboard during the 10-second wait | **REVOKED by the parent** stamp; the countdown keeps running |
 | 2c. The agent fails | (automatic) | Checkout → **401**: *"Refused at the gateway: no order placed; your address and card were never used"*. Budget stays at $0 spent. Terminal: *"agent stops: the passport was revoked, no retry"* |
 | 2d. A copied token is useless | `uv run python -m agent replay --expect 401` | `HTTP 401` while the token still has ~280 s left |
 
