@@ -88,7 +88,7 @@ The live demo, fallbacks and morning checklist are in [`docs/demo-runbook.md`](d
 
 ## Team
 
-We are **Team Agent Zero** (logo kit in [`docs/media/logo/`](docs/media/logo/)).
+We are **Team Agent Zero**. The Aide-commerce logo kit is in [`docs/media/logo/`](docs/media/logo/).
 
 
 | Name | GitHub | Role |

@@ -165,6 +165,7 @@ export default function App() {
     <div className="console">
       <header className="topbar">
         <div className="brand">
+          <img className="brand-mark" src="/logo-mark.svg" alt="" />
           <span className="brand-name">Aide-commerce</span>
           <span className="brand-sub">Agent security console</span>
         </div>

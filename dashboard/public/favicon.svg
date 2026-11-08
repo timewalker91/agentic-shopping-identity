@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Agent Zero symbol: an A inside a zero-shaped seal, with a red crossbar">
-  <title>Agent Zero</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" rx="40" fill="#0d1626"/>
+  <g transform="translate(14 14) scale(0.86)">
   <!-- Zero: the seal / zero-trust perimeter -->
   <circle cx="100" cy="100" r="86" fill="none" stroke="#ece7da" stroke-width="12"/>
   <!-- Perforated inner ring, like the edge of an official document -->
@@ -8,4 +9,5 @@
   <line x1="71.5" y1="114" x2="128.5" y2="114" stroke="#e5484d" stroke-width="12" stroke-linecap="butt"/>
   <!-- Agent: the chevron -->
   <path d="M58 144 L100 50 L142 144" fill="none" stroke="#ece7da" stroke-width="12" stroke-linejoin="miter" stroke-miterlimit="10" stroke-linecap="butt"/>
+</g>
 </svg>

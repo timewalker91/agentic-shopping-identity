@@ -59,7 +59,8 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   padding: 14px 28px; border-bottom: 1px solid var(--line); flex-wrap: wrap;
 }
-.brand { display: flex; align-items: baseline; gap: 14px; }
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-mark { width: 32px; height: 32px; flex: none; }
 .brand-name { font: 800 22px/1 var(--display); letter-spacing: -0.01em; }
 .brand-sub { color: var(--steel); font: 600 12px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; }
 .topbar-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

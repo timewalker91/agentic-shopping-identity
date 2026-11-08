@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Aide-commerce logo: an A inside a passport seal, with a red checkpoint bar">
+  <title>Aide-commerce</title>
+  <!-- Zero: the seal / zero-trust perimeter -->
+  <circle cx="100" cy="100" r="86" fill="none" stroke="#ece7da" stroke-width="12"/>
+  <!-- Perforated inner ring, like the edge of an official document -->
+  <circle cx="100" cy="100" r="71" fill="none" stroke="#ece7da" stroke-width="3" stroke-dasharray="1.6 5.8" stroke-linecap="round" opacity="0.75"/>
+  <!-- Checkpoint: the red crossbar where every call is checked and a revoke lands -->
+  <line x1="71.5" y1="114" x2="128.5" y2="114" stroke="#e5484d" stroke-width="12" stroke-linecap="butt"/>
+  <!-- Agent: the chevron -->
+  <path d="M58 144 L100 50 L142 144" fill="none" stroke="#ece7da" stroke-width="12" stroke-linejoin="miter" stroke-miterlimit="10" stroke-linecap="butt"/>
+</svg>
