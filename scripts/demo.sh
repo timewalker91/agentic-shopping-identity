@@ -73,7 +73,11 @@ agent demo reset >/dev/null || { printf '%sNot logged in? Run: uv run python -m 
 title "$GR" "LINE 1 · NORMAL FLOW: authenticate, browse, order"
 WAIT=5 step "The agent gets its own passport: acting for the parent, 5-minute lifetime" session start
 WAIT=4 step "It sees only 6 shopper tools: no gift cards, no address changes" tools
-WAIT=4 step "A real Claude agent (Amazon Bedrock) shops within the \$50 mandate" shop "Buy one pack of notebooks and one pack of pens for school, then check out to my home address. Stay under budget." --driver bedrock
+if [ "${AGENTPASS_MODE:-}" = "local" ]; then  # offline fallback: no Bedrock, so the scripted agent shops
+  WAIT=4 step "The agent shops within the \$50 mandate (offline mode: scripted agent)" shop --scenario happy
+else
+  WAIT=4 step "A real Claude agent (Amazon Bedrock) shops within the \$50 mandate" shop "Buy one pack of notebooks and one pack of pens for school, then check out to my home address. Stay under budget." --driver bedrock
+fi
 
 title "$RE" "LINE 2 · REVOKE FLOW: explicit revoke, the agent fails, your data stays unused"
 WAIT=3 step "A new task: the agent starts shopping again (nothing to click yet)" session start

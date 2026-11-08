@@ -7,7 +7,7 @@ Measured in **AWS mode** (KMS, Cognito, DynamoDB) on the demo laptop, Santa Clar
 
 | What | Result |
 |---|---|
-| **Stop pressed → agent's next call refused** | **~0.7 s**, while the token still had **294 of 300 s** left |
+| **Stop pressed → agent's next call refused** | **~0.7 s**, while the token still had **about 295 of 300 s** left |
 | Full demo check (`uv run python -m agent.demo_check --bedrock`) | **3 of 3** rounds passed in AWS mode, each with the real Bedrock agent; Stop → refused in 0.7–0.8 s with 295–297 s left |
 | Real Bedrock agent, normal purchase | about 12–15 s end to end, no denials |
 | Allowed tool call, agent → gateway → store and back | ~420 ms median; most of it is DynamoDB round trips from California to Virginia |
@@ -37,7 +37,7 @@ It only works against our gateway (audience), only for 5 minutes, and we can rev
 ## Revocation (the core of Prompt 1)
 
 **5. JWTs are stateless. How is revocation immediate?**
-The gateway checks a revocation list in DynamoDB on **every** tool call, with a strongly consistent read. The 5-minute lifetime only limits exposure; the list is what makes Stop instant. Measured: refused within ~0.4 s while the token still had 296 s left.
+The gateway checks a revocation list in DynamoDB on **every** tool call, with a strongly consistent read. The 5-minute lifetime only limits exposure; the list is what makes Stop instant. Measured: refused within ~0.7 s while the token still had about 295 s left.
 **Show:** `agentpass/gateway.py`, `_check_revocation`.
 
 **6. What if DynamoDB is down?**
@@ -101,3 +101,14 @@ MCP is the standard way agents call tools. Because we enforce at the protocol la
 
 **19. How much did AI write?**
 Be honest. We used Claude Code to write code. We designed the architecture and the contracts, reviewed every module, and wrote tests that prove each rule. Be ready to walk through `call_tool` in `gateway.py` in order: token → revocation → mandate → Cedar → budget → forward → audit.
+
+## Likely from A10 judges
+
+**20. Isn't this just a guardrail?**
+A guardrail lives inside one agent's runtime. Our identity travels with the token: in the demo, a copied token replayed from **outside** the agent was refused (401). A guardrail inside the agent can't stop that; revoking the identity can. And the agent never held the address or the card, only an ID (`addr_home`).
+
+**21. Where does this fit in a network stack?**
+The gateway is a policy enforcement point on the request path, the same place an ADC or API gateway already sits. Verifying the passport signature and checking the revocation list inline is a natural job there; the Cedar rules and the revocation list stay the same.
+
+**22. What happens to the user's personal data after a revoke?**
+The agent never had it. The token carries only `ship_to_id=addr_home`; the address book and the payment method stay on the server with the account owner. After a revoke, every call is refused at the gateway, so the agent can't make anyone use them.
