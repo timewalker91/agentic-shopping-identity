@@ -100,13 +100,13 @@ The live demo, fallbacks and morning checklist are in [`docs/demo-runbook.md`](d
 We are **Team Agent Zero**. The Aide-commerce logo kit is in [`docs/media/logo/`](docs/media/logo/).
 
 
-| Name | GitHub | Role |
-|---|---|---|
-| Jack Ning | @timewalker91 | Security core: infra, token service, agent identity, gateway, Cedar policies, Control API; dashboard |
-| Larry Miao | @mf523 | System architect: contracts and integration; store MCP server, Shopify adapter, shopping agent |
-| Isabella Shen | @Isabellazzz | Dashboard design, demo visuals |
-| Eric Wu | @edzwu9893 | Slides, business plan, Devpost, Q&A |
+| Name | GitHub |
+|---|---|
+| Jack Ning | @timewalker91 |
+| Larry Miao | @mf523 |
+| Isabella Shen | @Isabellazzz |
+| Eric Wu | @edzwu9893 |
 
 We used Claude Code to write much of the code. We designed the architecture and the contracts, reviewed the modules, and wrote tests for each rule. AI tools working in this repo read [`CLAUDE.md`](CLAUDE.md) and [`docs/implementation-plan.md`](docs/implementation-plan.md) first.
 
-**Never commit AWS credentials** (`.env`, `~/.aws_workshop_env`, access keys): this repo is public.
+Note: **Never commit AWS credentials** (`.env`, `~/.aws_workshop_env`, access keys): this repo is public.
