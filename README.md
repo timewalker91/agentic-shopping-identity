@@ -88,6 +88,9 @@ The live demo, fallbacks and morning checklist are in [`docs/demo-runbook.md`](d
 
 ## Team
 
+We are **Team Agent Zero** (logo kit in [`docs/media/logo/`](docs/media/logo/)).
+
+
 | Name | GitHub | Role |
 |---|---|---|
 | Jack Ning | @timewalker91 | Security core: infra, token service, agent identity, gateway, Cedar policies, Control API; dashboard |
