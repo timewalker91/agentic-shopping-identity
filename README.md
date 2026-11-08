@@ -1,4 +1,4 @@
-# AgentPass: Agentic Shopping Identity
+# Aide-commerce: Agentic Shopping Identity
 
 > AWS x A10 Hack 2026, Santa Clara University · **A10 Track, Prompt 1: Agentic Identity**
 

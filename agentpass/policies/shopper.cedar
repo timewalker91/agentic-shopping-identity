@@ -1,4 +1,4 @@
-// AgentPass tool policies for shopping agents. Default deny: anything not permitted is denied,
+// Aide-commerce tool policies for shopping agents. Default deny: anything not permitted is denied,
 // and a forbid always beats a permit. Same rules as the Architecture Design (AgentCore Policy).
 // principal = the agent (attributes copied from its delegated token), action = the MCP tool,
 // context.input = the tool's arguments.

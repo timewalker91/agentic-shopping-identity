@@ -1,4 +1,4 @@
-"""Create (or find) every AWS resource AgentPass needs. Safe to run again.
+"""Create (or find) every AWS resource Aide-commerce needs. Safe to run again.
 
 What it sets up in us-east-1:
   1. DynamoDB tables for mandates, sessions, revocations, the store and the audit log.
@@ -83,7 +83,7 @@ def ensure_kms_key(kms, alias: str) -> str:
     key = kms.create_key(
         KeySpec="RSA_2048",
         KeyUsage="SIGN_VERIFY",
-        Description=f"AgentPass hackathon signing key ({alias})",
+        Description=f"Aide-commerce hackathon signing key ({alias})",
     )["KeyMetadata"]
     kms.create_alias(AliasName=alias, TargetKeyId=key["KeyId"])
     return key["Arn"]

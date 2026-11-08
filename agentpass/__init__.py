@@ -1,1 +1,1 @@
-"""AgentPass: token service, MCP gateway and Control API."""
+"""Aide-commerce: token service, MCP gateway and Control API."""

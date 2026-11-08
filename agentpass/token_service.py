@@ -1,8 +1,8 @@
-"""AgentPass token service: RFC 8693 token exchange.
+"""Aide-commerce token service: RFC 8693 token exchange.
 
 The credential broker sends: the user's Cognito access token (subject) + a client
 assertion signed by the agent's own KMS key (actor). If every check passes, we
-return a 5-minute delegated token signed by the AgentPass KMS key:
+return a 5-minute delegated token signed by the Aide-commerce KMS key:
 sub = user, act = agent, plus the session, mandate and tool profile.
 """
 

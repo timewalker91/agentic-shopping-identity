@@ -1,7 +1,7 @@
-"""AgentPass MCP gateway: POST /mcp. The only path from the agent to the store.
+"""Aide-commerce MCP gateway: POST /mcp. The only path from the agent to the store.
 
 Every tools/call goes through, in order:
-  1. Token     - delegated token signed by AgentPass (KMS), right audience, not expired
+  1. Token     - delegated token signed by Aide-commerce (KMS), right audience, not expired
   2. Revoked?  - sid#, agent#, user#, mandate#, jti# in the revocation list (fail closed)
   3. Mandate   - still active and unexpired
   4. Cedar     - policies/shopper.cedar on the tool name + arguments (default deny)

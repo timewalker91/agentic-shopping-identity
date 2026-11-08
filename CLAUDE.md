@@ -1,9 +1,11 @@
-# AgentPass: instructions for AI coding tools
+# Aide-commerce: instructions for AI coding tools
 
 Read this before writing any code in this repo. It applies to Claude Code, Kiro, or any other assistant a teammate uses.
 
 ## What we're building
-AgentPass gives an AI shopping agent its own short-lived, KMS-signed identity. A gateway checks every MCP tool call against that identity, Cedar policies, a revocation list and a budget. The user (or an automatic rule) can revoke the agent mid-task, and every later request is blocked. This is the AWS x A10 Hack 2026, A10 Prompt 1.
+Aide-commerce gives an AI shopping agent its own short-lived, KMS-signed identity. A gateway checks every MCP tool call against that identity, Cedar policies, a revocation list and a budget. The user (or an automatic rule) can revoke the agent mid-task, and every later request is blocked. This is the AWS x A10 Hack 2026, A10 Prompt 1.
+
+**Naming:** the product is **Aide-commerce**. The lowercase codename `agentpass` stays in code identifiers on purpose: the `agentpass/` package, token `iss`/`aud`, AWS resource names (`alias/agentpass-*`, `agentpass-users`) and the `ap_` tables. Don't rename these; the live AWS setup and teammates' code depend on them.
 
 **Source of truth:** `docs/implementation-plan.md`, especially **section 5, Contracts**. Follow it exactly. **Larry (system architect) owns the contracts:** if one seems wrong, stop and ask Larry; don't silently change it.
 

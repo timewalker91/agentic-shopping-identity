@@ -1,11 +1,11 @@
-"""AgentPass API on :8000.  Run:  uv run uvicorn agentpass.main:app --port 8000"""
+"""Aide-commerce API on :8000.  Run:  uv run uvicorn agentpass.main:app --port 8000"""
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import control, gateway, token_service
 
-app = FastAPI(title="AgentPass", version="0.1.0")
+app = FastAPI(title="Aide-commerce", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],  # Isabella's dashboard

@@ -1,4 +1,4 @@
-# Implementation Plan: AgentPass (Hackathon Build)
+# Implementation Plan: Aide-commerce (Hackathon Build)
 
 **Status:** proposal for team review, Sat Nov 7, 14:30. It builds on the Architecture Design tab.
 **Deadline:** Devpost by **Sun Nov 8, 8:30 AM** (hard deadline 9:00). Judging in the Heafey Atrium from 9:30.

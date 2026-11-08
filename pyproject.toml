@@ -1,7 +1,7 @@
 [project]
 name = "agentpass"
 version = "0.1.0"
-description = "AgentPass: scoped identity, per-call MCP tool enforcement and mid-task revocation for AI shopping agents"
+description = "Aide-commerce: scoped identity, per-call MCP tool enforcement and mid-task revocation for AI shopping agents"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "boto3>=1.40",
