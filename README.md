@@ -2,72 +2,99 @@
 
 > AWS x A10 Hack 2026, Santa Clara University · **A10 Track, Prompt 1: Agentic Identity**
 
-AI shopping agents can now check out on their own. This project gives every shopping agent its own scoped, short-lived identity, enforces what it may do on **every MCP tool call**, and lets a parent or an automatic risk signal **revoke the agent mid-task**. Once revoked, the agent's next request is blocked, even if its token hasn't expired.
+AI shopping agents can now check out on their own, but today they act with the user's own login and card. Aide-commerce gives every shopping agent **its own short-lived identity**, checks **every MCP tool call** against that identity, Cedar policies and a budget, and lets a parent (or an automatic risk rule) **revoke the agent mid-task**. After a revoke, the agent's next request is refused, even though its token hasn't expired.
 
-## Demo requirements (A10 Prompt 1)
+![A hijacked agent tries to buy gift cards and ship to another address; both calls are blocked, the agent is revoked automatically, and its next call is refused](docs/media/hijack-revoke.gif)
 
-- [ ] Authenticate an agent (Agent Passport: on-behalf-of token)
-- [ ] Allow selected MCP tools (`search`, `add_to_cart`, `checkout` ✅ · `buy_gift_card`, `change_shipping_address` ❌)
-- [ ] Revoke access mid-task (poisoned product listing → auto-revoke, or parent kill switch)
-- [ ] Block subsequent requests (retries with the unexpired token → 401)
+## The four things Prompt 1 asks for
 
-## Repo layout
-
-| Folder | What goes here |
+| Requirement | How Aide-commerce does it |
 |---|---|
-| `agentpass/` | FastAPI app on :8000: token service (KMS-signed delegated tokens), MCP gateway, Cedar policies, Control API |
-| `agent/` | Shopping agent (Python + Amazon Bedrock) + credential broker |
-| `store/` | Mock store MCP server + payment mock + seed catalog (with one poisoned listing) |
-| `infra/` | `setup.py`: DynamoDB tables, Cognito user pool, KMS keys (boto3) |
-| `dashboard/` | React live security dashboard: Agent Passport, decision feed, budget gauge, Stop button |
-| `tests/` | Rule tests, token-replay script, demo reset |
-| `docs/` | Implementation plan, scenario map, architecture |
+| ✅ **Authenticate an agent** | The agent proves who it is with a single-use assertion signed by **its own KMS key**, then exchanges it with the parent's Cognito sign-in (RFC 8693) for a **5-minute Agent Passport**, KMS-signed, naming both the parent (`sub`) and the agent (`act`) |
+| ✅ **Allow selected MCP tools** | The agent sees only 6 shopper tools. **Cedar** (default deny) blocks gift cards, other shipping addresses, other stores and quantities over 10. The budget is enforced on the server's own cart total |
+| ✅ **Revoke access mid-task** | The parent's **Stop** button, or **automatically after 2 policy denials** (a poisoned product listing hijacks the agent) |
+| ✅ **Block subsequent requests** | Every call checks a revocation list in DynamoDB (strongly consistent, no cache, fails closed): the next call is refused in **~0.7 s** while the token still has ~295 s left. Replaying a copied token gets **401**; a new passport is refused |
+
+<p>
+  <img src="docs/media/normal-purchase-real-agent.png" width="49%" alt="The real Claude agent buys school supplies within budget; every call allowed">
+  <img src="docs/media/stopped-by-parent.png" width="49%" alt="The parent pressed Stop; the passport is stamped REVOKED and the agent's next call is refused">
+</p>
+
+*Left: the real Claude agent buys within budget. Right: the parent pressed Stop, and the agent's next call was refused.*
+
+## How it works
+
+![Architecture](docs/architecture/aide-commerce-architecture.png)
+
+- **`agentpass/`**: one FastAPI app on :8000. It holds the token service, the MCP gateway (`POST /mcp`: passport → revocation list → Cedar → budget → store → audit) and the Control API used by the dashboard.
+- **`agent/`**: the shopping agent: Claude Sonnet 5 on Amazon Bedrock as an MCP client, plus a credential broker that holds the passport (the model never sees tokens). It also includes a scripted driver that simulates a compromised agent.
+- **`store/`**: the store MCP server on :8100. It's a mock store, or a Shopify adapter with the same tool contract, plus a payment mock (no real money).
+- **`dashboard/`**: the parent's security console (React + Vite, :5173): Agent Passport, live decisions, budget, Stop button.
+- **AWS:** Cognito (parent sign-in), KMS (2 ECC keys: passport signing and agent identity), DynamoDB (5 tables), Bedrock (the agent's model). Region `us-east-1`.
+
+**Honest note on the hijack:** in our tests, real Claude Sonnet 5 recognized and refused the poisoned listing, and so did Llama 4 Scout. The hijack in the demo is therefore a simulated compromised agent (`agent shop --scenario hijacked`). The controls don't depend on the model: the gateway judges what the agent *does*.
 
 ## Run it
 
-```bash
-uv venv --python 3.12 .venv && source .venv/bin/activate     # or python3.12 -m venv .venv
-uv pip install -e ".[dev]"                                    # or pip install -e ".[dev]"
-pytest                                                        # 35 tests, no AWS needed
-```
-
-Three terminals, local mode (no AWS; in-memory tables, local signing key, user `parent` / `parent-pass`):
+Needs Python 3.13 with [uv](https://docs.astral.sh/uv/) and Node 20+.
 
 ```bash
-python -m store.server          # store MCP server on :8100 (mock catalog; STORE_BACKEND=shopify for the dev store)
-python -m agentpass             # token service + gateway + Control API on :8000
-agent login --user parent --password parent-pass
-agent session start             # Cognito/local login -> session -> KMS/local-signed passport (5 min)
-agent tools                     # the agent sees only the 6 shopper tools
-agent shop --scenario happy     # S1: search, add, checkout within budget
-agent session start && agent shop --scenario hijacked   # S3: poisoned listing -> 2 denials -> auto-revoke -> 401
-agent replay --expect 401       # the copied, unexpired token is blocked
-tests/replay_token.sh           # same with curl
+uv sync
+uv run pytest                         # 42 tests, no AWS needed
+(cd dashboard && npm install)
 ```
 
-`agent shop --driver bedrock "buy notebooks, pens and glue under $50"` runs the Amazon Bedrock agent instead of the
-scripted scenarios. AWS mode: `source ~/.aws_workshop_env`, `python -m infra.setup --demo-password '...'`, then start
-`agentpass` again; it picks up `AGENTPASS_MODE=aws` from `.env` (DynamoDB, KMS signing, Cognito login).
-Each folder's README has the details; `agentpass/README.md` documents the HTTP API the dashboard uses.
+**Local mode** (no AWS: in-memory tables, local keys, sign in as `parent` / `parent-pass`), one terminal each:
+
+```bash
+AGENTPASS_MODE=local uv run python -m store.server --backend mock --checkout mock    # :8100
+AGENTPASS_MODE=local uv run python -m agentpass                                      # :8000
+cd dashboard && npm run dev                                                          # http://127.0.0.1:5173
+```
+
+Then drive the agent while watching the dashboard:
+
+```bash
+export AGENTPASS_MODE=local
+uv run agent login                    # parent / parent-pass
+uv run agent session start            # passport: parent + agent, 5 minutes
+uv run agent shop --scenario happy    # normal purchase within budget
+uv run agent session start && uv run agent shop --scenario hijacked --step-delay 1.5
+                                      # poisoned listing → 2 blocked calls → auto-revoke → next call refused
+uv run agent replay --expect 401      # the copied, unexpired token is useless
+```
+
+**AWS mode:** `source ~/.aws_workshop_env`, run `uv run python -m infra.setup` once (creates the DynamoDB tables, Cognito pool and KMS keys, and writes `.env`), then start the same three processes without `AGENTPASS_MODE=local`. The real model shops with `uv run agent shop "Buy notebooks and pens for school" --driver bedrock`.
+
+**Check the whole demo** (each round resets, then tests every step above, including the Stop timing):
+
+```bash
+uv run python -m agent.demo_check --rounds 3 [--bedrock]
+```
+
+The live demo, fallbacks and morning checklist are in [`docs/demo-runbook.md`](docs/demo-runbook.md). Judge Q&A notes are in [`docs/qa-prep.md`](docs/qa-prep.md).
+
+## Repo layout
+
+| Folder | Contents |
+|---|---|
+| `agentpass/` | Token service, agent identity, MCP gateway, Cedar policies (`agentpass/policies/`), Control API, storage |
+| `agent/` | Credential broker, MCP client, Bedrock shopper, scripted scenarios, `demo_check` |
+| `store/` | Store MCP server, mock catalog (`seed.json`, with one poisoned listing), Shopify adapter, payment mock |
+| `infra/` | `setup.py`: DynamoDB tables, Cognito user pool, KMS keys (boto3) |
+| `dashboard/` | Parent's security console (React + TypeScript + Vite) |
+| `tests/` | Policy, agent-identity and end-to-end tests; token-replay script |
+| `docs/` | Implementation plan, scenario map, architecture, demo runbook, Q&A prep |
 
 ## Team
 
 | Name | GitHub | Role |
 |---|---|---|
-| Jack Ning | @timewalker91 | Security core: infra, token service, gateway, Cedar policies, Control API |
-| Isabella Shen | @Isabellazzz | Dashboard (React) + Touch ID step-up page |
-| Larry Miao | | System architect: contracts, integration, quality gates; store + shopping agent; tests, demo environment |
-| Eric Wu | @edzwu9893 | Slides, demo, Devpost, Q&A |
+| Jack Ning | @timewalker91 | Security core: infra, token service, agent identity, gateway, Cedar policies, Control API; dashboard |
+| Larry Miao | @mf523 | System architect: contracts and integration; store MCP server, Shopify adapter, shopping agent |
+| Isabella Shen | @Isabellazzz | Dashboard design, demo visuals |
+| Eric Wu | @edzwu9893 | Slides, business plan, Devpost, Q&A |
 
-AI tools: read [`CLAUDE.md`](CLAUDE.md) and [`docs/implementation-plan.md`](docs/implementation-plan.md) first.
+We used Claude Code to write much of the code. We designed the architecture and the contracts, reviewed the modules, and wrote tests for each rule. AI tools working in this repo read [`CLAUDE.md`](CLAUDE.md) and [`docs/implementation-plan.md`](docs/implementation-plan.md) first.
 
-## Team rules
-
-- **Never commit AWS credentials** (`.env`, `~/.aws_workshop_env`, access keys). This repo is public.
-- Commit small and often, **each person from their own GitHub account**. The commit history is our proof of work for the judges.
-- No pre-written code, templates, or v0/Lovable-style generators (hackathon rules). Organizer sample code and normal packages are fine.
-- AWS region: `us-east-1` only.
-
-## Deadline
-
-Devpost submission: **Sun Nov 8, 2026, 9:00 AM PST**. Judging in Heafey Atrium starts ~9:30 AM.
+**Never commit AWS credentials** (`.env`, `~/.aws_workshop_env`, access keys): this repo is public.
