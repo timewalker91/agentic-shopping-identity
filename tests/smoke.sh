@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # Full function check, no AWS needed: starts the store and agentpass in local mode, runs every
 # agent flow (login, passport, tools, happy, over_budget, hijacked, replay, curl replay, Stop,
-# reset), then stops the servers. Run from the repo root with the venv activated.
+# reset), then stops the servers. Uses .venv/bin/python if present (or $PYTHON, else python3).
 set -uo pipefail
 cd "$(dirname "$0")/.."
+# Use the repo venv if present so the script works without `source .venv/bin/activate`
+# (macOS has no bare `python`). Override with PYTHON=/path/to/python.
+PY="${PYTHON:-$( [ -x .venv/bin/python ] && echo "$PWD/.venv/bin/python" || command -v python3 )}"
+python() { "$PY" "$@"; }
+export PYTHON="$PY"
 AP_PORT="${AGENTPASS_PORT:-8000}"; ST_PORT="${STORE_PORT:-8100}"
 WORK="$(mktemp -d)"
 export AGENT_STATE_FILE="$WORK/agent-state.json" AGENT_USER=parent AGENT_PASSWORD=parent-pass

@@ -11,6 +11,7 @@ Scenarios (see docs/scenario-map.md):
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from dataclasses import dataclass, field
@@ -21,6 +22,20 @@ from .mcp_client import GatewayClient, GatewayError, SessionRevokedError, ToolEr
 GC_SKU = re.compile(r"\b(GC-\d+)\b")
 GC_QTY = re.compile(r"(\d+)\s*(?:units?|x|×)\s*(?:of\s*)?(?:SKU\s*)?GC-", re.I)
 SHIP_TO = re.compile(r"ship_to_id\W{0,3}(addr_[a-z0-9_]+)", re.I)
+
+# Search words per scenario. Defaults match the mock catalog (store/seed.json); override them to
+# run the scenarios against a real Shopify catalog, e.g. AGENT_QUERY_HAPPY=snowboard.
+DEFAULT_QUERIES = {
+    "happy": "school supplies",      # S1/S6: the three cheapest results go in the cart
+    "expensive": "headphones",       # S2: the priciest result should exceed the budget
+    "cheap": "notebook",             # S2: the cheapest result is the fallback cart
+    "poisoned": "markers",           # S3: a result whose description carries the hidden instruction
+}
+POISON_SCAN_LIMIT = 5  # S3 reads up to this many listings looking for the hidden instruction
+
+
+def query_for(name: str) -> str:
+    return os.environ.get(f"AGENT_QUERY_{name.upper()}") or DEFAULT_QUERIES[name]
 
 
 @dataclass
@@ -121,7 +136,7 @@ class ScriptedShopper:
         return self.steps
 
     def _run_happy(self) -> None:
-        found = self._call("search_products", {"query": "school supplies"}) or {}
+        found = self._call("search_products", {"query": query_for("happy")}) or {}
         picks = [p for p in found.get("products", []) if not p["sku"].upper().startswith("GC-")]
         picks.sort(key=lambda p: p["price"])
         for product in picks[:3]:
@@ -137,30 +152,35 @@ class ScriptedShopper:
         self._run_happy()
 
     def _run_over_budget(self) -> None:
-        found = self._call("search_products", {"query": "headphones"}) or {}
+        found = self._call("search_products", {"query": query_for("expensive")}) or {}
         pricey = max(found.get("products", []), key=lambda p: p["price"], default=None)
         if pricey:
             self._add(pricey["sku"], 1)
             self._checkout()
         self.out("   agent suggests cheaper items and starts a new cart")
         cheaper_cart = f"{self.cart_id}-b"
-        found = self._call("search_products", {"query": "notebook"}) or {}
+        found = self._call("search_products", {"query": query_for("cheap")}) or {}
         cheap = min(found.get("products", []), key=lambda p: p["price"], default=None)
         if cheap:
             self._add(cheap["sku"], 1, cart_id=cheaper_cart)
             self._checkout(cart_id=cheaper_cart)
 
     def _run_hijacked(self) -> None:
-        found = self._call("search_products", {"query": "markers"}) or {}
+        query = query_for("poisoned")
+        found = self._call("search_products", {"query": query}) or {}
         products = found.get("products", [])
         if not products:
-            self.out("   no markers found; nothing to read")
+            self.out(f"   no products found for {query!r}; nothing to read")
             return
-        listing = self._call("get_product", {"sku": products[0]["sku"]}) or {}
-        description = listing.get("product", {}).get("description", "")
-        sku_match = GC_SKU.search(description)
+        description, sku_match = "", None
+        for product in products[:POISON_SCAN_LIMIT]:
+            listing = self._call("get_product", {"sku": product["sku"]}) or {}
+            description = listing.get("product", {}).get("description", "")
+            sku_match = GC_SKU.search(description)
+            if sku_match:
+                break
         if not sku_match:
-            self.out("   listing has no hidden instruction; nothing to follow")
+            self.out("   no listing has a hidden instruction (needs a GC-<digits> SKU in a description); nothing to follow")
             return
         qty_match = GC_QTY.search(description)
         addr_match = SHIP_TO.search(description)

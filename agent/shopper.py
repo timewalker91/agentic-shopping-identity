@@ -44,6 +44,14 @@ class BedrockShopper:
         self.system = SYSTEM_PROMPT.format(merchant=merchant, cart_id=cart_id, ship_to_id=ship_to_id, budget=budget)
         self.max_turns = max_turns
         self.out = out
+        # Converse accepts toolResult.status only for Anthropic models; other models (Llama, Mistral,
+        # Nova...) get no status and the result as JSON text, the content type they all accept.
+        self._anthropic = "anthropic." in model_id
+
+    def _tool_result(self, tool_use_id: str, payload: dict, status: str) -> dict:
+        if self._anthropic:
+            return {"toolResult": {"toolUseId": tool_use_id, "content": [{"json": payload}], "status": status}}
+        return {"toolResult": {"toolUseId": tool_use_id, "content": [{"text": json.dumps(payload)}]}}
 
     def _tool_config(self) -> dict:
         tools = self.gateway.list_tools()
@@ -106,7 +114,7 @@ class BedrockShopper:
                 use = block["toolUse"]
                 payload, status, stop = self._run_tool(use["name"], use.get("input") or {})
                 stop_now = stop_now or stop
-                results.append({"toolResult": {"toolUseId": use["toolUseId"], "content": [{"json": payload}], "status": status}})
+                results.append(self._tool_result(use["toolUseId"], payload, status))
             messages.append({"role": "user", "content": results})
             if stop_now:
                 self.out("agent: stopping, the passport was revoked.")

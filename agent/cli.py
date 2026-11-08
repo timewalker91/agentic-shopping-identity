@@ -144,7 +144,21 @@ def cmd_shop(args: argparse.Namespace) -> int:
         )
         goal = args.goal or "Buy the school supplies on my list: notebooks, pens and glue. Stay under budget."
         print(f"goal: {goal}")
-        print(shopper.run(goal))
+        from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
+
+        try:
+            print(shopper.run(goal))
+        except NoCredentialsError:
+            print(
+                "error: no AWS credentials for Bedrock. Export AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY "
+                "(and AWS_SESSION_TOKEN), set AWS_PROFILE, or run `aws configure`. "
+                "Without AWS use `--driver scripted` or `agent call search_products ...`.",
+                file=sys.stderr,
+            )
+            return 3
+        except (ClientError, BotoCoreError) as exc:
+            print(f"error: Bedrock call failed: {exc}", file=sys.stderr)
+            return 3
         return 0
     shopper = ScriptedShopper(
         gateway,

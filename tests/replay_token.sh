@@ -5,6 +5,9 @@
 #   tests/replay_token.sh            # exports the current token from the agent state, then replays it
 #   tests/replay_token.sh TOKENFILE  # replays a token you copied earlier
 set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PY="${PYTHON:-$( [ -x "$ROOT/.venv/bin/python" ] && echo "$ROOT/.venv/bin/python" || command -v python3 )}"
+python() { "$PY" "$@"; }
 API="${AGENTPASS_API_URL:-http://127.0.0.1:8000}"
 TOKEN_FILE="${1:-${TMPDIR:-/tmp}/agentpass-passport.jwt}"
 if [ ! -s "$TOKEN_FILE" ]; then

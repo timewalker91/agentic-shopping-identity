@@ -38,6 +38,8 @@ async def probe(target: str, query: str) -> int:
         print(f"   failed: {exc}")
         return 1
     print(f"   endpoint {catalog.endpoint}")
+    if not products:
+        print(f"   no products matched {query!r} (is the domain right, and are products published to the Online Store?)")
     for product in products:
         print(f"   - {product.sku:28} ${product.price_cents / 100:8.2f} {product.currency}  {product.name}  [{product.category}]")
     if products:
