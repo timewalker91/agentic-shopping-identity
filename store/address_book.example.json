@@ -1,0 +1,13 @@
+{
+  "_comment": "Placeholder data. Copy to store/address_book.json (gitignored) for your own test address. Keys are the ship_to_id values in the mandate.",
+  "addr_home": {
+    "email": "test.buyer@example.com",
+    "first_name": "Example",
+    "last_name": "Buyer",
+    "street_address": "100 Main St",
+    "address_locality": "Springfield",
+    "address_region": "IL",
+    "postal_code": "62701",
+    "address_country": "US"
+  }
+}

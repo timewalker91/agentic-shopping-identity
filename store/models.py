@@ -98,11 +98,14 @@ class Order:
     currency: str
     items: list[dict]
     payment_id: str
-    status: str = "confirmed"
+    status: str = "confirmed"  # confirmed (payment mock) | awaiting_buyer / paid_by_buyer / canceled (Shopify handoff)
     placed_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat(timespec="seconds"))
+    extra: dict = field(default_factory=dict)  # Shopify handoff: checkout id, continue_url, totals
 
     @classmethod
-    def from_cart(cls, cart: Cart, ship_to_id: str, payment_id: str) -> "Order":
+    def from_cart(
+        cls, cart: Cart, ship_to_id: str, payment_id: str, status: str = "confirmed", extra: dict | None = None
+    ) -> "Order":
         return cls(
             order_id=f"ord_{secrets.token_hex(4)}",
             cart_id=cart.cart_id,
@@ -112,10 +115,13 @@ class Order:
             currency=cart.currency,
             items=[line.to_dict() for line in cart.lines],
             payment_id=payment_id,
+            status=status,
+            extra=dict(extra or {}),
         )
 
     def to_dict(self) -> dict:
         return {
+            **self.extra,
             "order_id": self.order_id,
             "status": self.status,
             "merchant": self.merchant,

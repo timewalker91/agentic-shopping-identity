@@ -33,7 +33,7 @@ packages = ["agentpass", "store", "agent", "infra"]
 
 [tool.setuptools.package-data]
 agentpass = ["policies/*.cedar"]
-store = ["seed.json"]
+store = ["seed.json", "address_book.example.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -17,18 +17,75 @@ from mcp.server.mcpserver import MCPServer
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from .address_book import AddressBook
 from .backend import CartBook, CatalogBackend, OrderBook, StoreToolError
 from .mock_backend import MockCatalog
+from .models import Cart, Order, dollars
 from .payment import PaymentMock
 
 log = logging.getLogger("store")
 
+# Shopify checkout status -> our order status (handoff orders only).
+SHOPIFY_ORDER_STATUS = {"completed": "paid_by_buyer", "canceled": "canceled", "complete_in_progress": "processing"}
 
-def build_server(catalog: CatalogBackend, carts: CartBook, orders: OrderBook, payment: PaymentMock) -> MCPServer:
+
+def build_server(
+    catalog: CatalogBackend,
+    carts: CartBook,
+    orders: OrderBook,
+    payment: PaymentMock,
+    address_book: AddressBook | None = None,
+) -> MCPServer:
+    """address_book set (Shopify backend + STORE_CHECKOUT=shopify): checkout hands off to Shopify."""
     server = MCPServer(
         name="agentpass-store",
         instructions=f"Store MCP server for merchant '{catalog.merchant}'. Prices are in dollars.",
     )
+
+    async def shopify_handoff(cart: Cart, ship_to_id: str) -> dict[str, Any]:
+        """Turn the local cart into a Shopify checkout; the buyer pays at continue_url."""
+        assert address_book is not None
+        buyer, destination = address_book.buyer_and_destination(ship_to_id)
+        lines: list[tuple[str, int]] = []
+        for line in cart.lines:
+            gid = await catalog.variant_id(line.sku)  # type: ignore[attr-defined]
+            if gid is None:
+                raise StoreToolError("unknown_variant", f"no Shopify variant for sku {line.sku}")
+            lines.append((gid, line.quantity))
+        session = await catalog.create_checkout(lines, buyer, destination)  # type: ignore[attr-defined]
+        if session.continue_url is None or session.status in ("incomplete", "canceled"):
+            detail = "; ".join(session.messages) or session.status
+            raise StoreToolError("shopify_checkout_failed", f"Shopify could not prepare the checkout: {detail}")
+        shopify_total = session.total_cents if session.total_cents is not None else cart.total_cents
+        extra = {
+            "payment": "shopify_handoff",
+            "shopify_checkout_id": session.checkout_id,
+            "shopify_status": session.status,
+            "shopify_total": dollars(shopify_total),
+            "continue_url": session.continue_url,
+        }
+        order = orders.create(cart, ship_to_id, payment_id="", status="awaiting_buyer", extra=extra)
+        carts.clear(cart.cart_id)
+        note = "Shopify does not let agents pay. The parent completes payment at continue_url."
+        if shopify_total > cart.total_cents:
+            note += f" Shopify's total ${dollars(shopify_total):.2f} includes shipping or tax on top of the cart."
+        return {**order.to_dict(), "order_status": order.status, "status": "awaiting_buyer", "cart_id": cart.cart_id, "note": note}
+
+    async def refresh_handoff(order: Order) -> None:
+        checkout_id = order.extra.get("shopify_checkout_id")
+        if not checkout_id or order.status in ("paid_by_buyer", "canceled"):
+            return
+        try:
+            session = await catalog.get_checkout(checkout_id)  # type: ignore[attr-defined]
+        except StoreToolError as exc:
+            log.warning("get_checkout %s failed: %s", checkout_id, exc.code)
+            return
+        order.extra["shopify_status"] = session.status
+        order.status = SHOPIFY_ORDER_STATUS.get(session.status, order.status)
+        if session.shopify_order:
+            order.extra["shopify_order"] = {
+                k: session.shopify_order.get(k) for k in ("id", "label", "permalink_url") if session.shopify_order.get(k)
+            }
 
     @server.tool()
     async def search_products(query: str, category: str | None = None) -> dict[str, Any]:
@@ -68,6 +125,8 @@ def build_server(catalog: CatalogBackend, carts: CartBook, orders: OrderBook, pa
         cart = carts.get(cart_id)
         if not cart.lines:
             raise StoreToolError("empty_cart", f"cart {cart_id} is empty")
+        if address_book is not None:
+            return await shopify_handoff(cart, ship_to_id)
         result = payment.charge(cart.total_cents, reference=cart_id)
         if result.status != "paid":
             return {
@@ -87,6 +146,7 @@ def build_server(catalog: CatalogBackend, carts: CartBook, orders: OrderBook, pa
         order = orders.get(order_id)
         if order is None:
             raise StoreToolError("unknown_order", f"no order {order_id}")
+        await refresh_handoff(order)
         return order.to_dict()
 
     @server.tool()
@@ -120,6 +180,7 @@ def build_server(catalog: CatalogBackend, carts: CartBook, orders: OrderBook, pa
                 "status": "ok",
                 "merchant": catalog.merchant,
                 "backend": catalog.name,
+                "checkout": "shopify_handoff" if address_book is not None else "payment_mock",
                 "orders": orders.count(),
                 "payment_funds": payment.available_cents / 100,
             }
@@ -144,12 +205,20 @@ def make_catalog(backend: str, merchant: str | None = None) -> CatalogBackend:
     return MockCatalog()
 
 
-def create_app(backend: str = "mock", host: str = "127.0.0.1", funds_dollars: float = 150.0) -> Any:
+def create_app(
+    backend: str = "mock", host: str = "127.0.0.1", funds_dollars: float = 150.0, checkout: str = "mock"
+) -> Any:
     catalog = make_catalog(backend)
     carts = CartBook(catalog.merchant)
     orders = OrderBook()
     payment = PaymentMock(int(round(funds_dollars * 100)))
-    server = build_server(catalog, carts, orders, payment)
+    address_book = None
+    if checkout == "shopify":
+        if backend != "shopify":
+            raise SystemExit("STORE_CHECKOUT=shopify needs STORE_BACKEND=shopify")
+        address_book = AddressBook.load()
+        log.info("checkout: Shopify handoff, addresses %s from %s", address_book.ids(), address_book.source)
+    server = build_server(catalog, carts, orders, payment, address_book)
     return server.streamable_http_app(json_response=True, stateless_http=True, host=host)
 
 
@@ -164,10 +233,16 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=int(os.environ.get("STORE_PORT", "8100")))
     parser.add_argument("--backend", choices=("mock", "shopify"), default=os.environ.get("STORE_BACKEND", "mock"))
     parser.add_argument("--funds", type=float, default=float(os.environ.get("PAYMENT_MOCK_FUNDS", "150")))
+    parser.add_argument(
+        "--checkout",
+        choices=("mock", "shopify"),
+        default=os.environ.get("STORE_CHECKOUT", "mock"),
+        help="mock = payment mock; shopify = real Shopify checkout the buyer pays at continue_url",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    app = create_app(args.backend, args.host, args.funds)
-    log.info("store backend=%s listening on http://%s:%d/mcp", args.backend, args.host, args.port)
+    app = create_app(args.backend, args.host, args.funds, args.checkout)
+    log.info("store backend=%s checkout=%s listening on http://%s:%d/mcp", args.backend, args.checkout, args.host, args.port)
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 
 

@@ -20,8 +20,10 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -159,6 +161,7 @@ class ShopifyCatalog:
         self._lookup_tool = ""
         self._index: dict[str, Product] = {}
         self._gids: dict[str, str] = {}
+        self._variants: dict[str, str] = {}  # sku -> gid://shopify/ProductVariant/..., for checkout
 
     @property
     def endpoint(self) -> str:
@@ -191,19 +194,27 @@ class ShopifyCatalog:
 
     async def _call(self, tool: str, args: dict) -> Any:
         if self._mode == "ucp":
-            arguments = {"meta": {"ucp-agent": {"profile": self._profile_url}}, "catalog": args}
-        else:
-            arguments = args
+            return await self._ucp(tool, {"catalog": args})
+        return await self._raw_call(tool, args)
+
+    async def _ucp(self, tool: str, arguments: dict) -> Any:
+        """UCP tools take their payload next to a `meta` block naming our agent profile."""
+        return await self._raw_call(tool, {"meta": {"ucp-agent": {"profile": self._profile_url}}, **arguments})
+
+    async def _raw_call(self, tool: str, arguments: dict) -> Any:
         result = await mcp_rpc(self._http, self._url or "", "tools/call", {"name": tool, "arguments": arguments})
         if result.get("isError"):
             raise StoreToolError("shopify_tool_error", json.dumps(tool_payload(result))[:300])
         return tool_payload(result)
 
     # -- mapping ---------------------------------------------------------------------------
-    def _remember(self, product: Product, product_gid: Any) -> Product:
-        self._index[product.sku.upper()] = product
+    def _remember(self, product: Product, product_gid: Any, variant_gid: Any = None) -> Product:
+        key = product.sku.upper()
+        self._index[key] = product
         if product_gid:
-            self._gids[product.sku.upper()] = str(product_gid)
+            self._gids[key] = str(product_gid)
+        if variant_gid and str(variant_gid).startswith("gid://shopify/ProductVariant/"):
+            self._variants[key] = str(variant_gid)
         return product
 
     @staticmethod
@@ -236,7 +247,7 @@ class ShopifyCatalog:
             description=text,
             image_url=media[0].get("url") if media and isinstance(media[0], dict) else None,
         )
-        return self._remember(product, raw.get("id"))
+        return self._remember(product, raw.get("id"), first.get("id"))
 
     def _legacy_product(self, raw: dict) -> Product:
         variants = raw.get("variants") or []
@@ -314,6 +325,75 @@ class ShopifyCatalog:
                 pass
         await self.search_products(sku, limit=10)
 
+    # -- checkout (Shopify Checkout MCP, general access) ------------------------------------
+    # Shopify does not let self-serve agents pay: complete_checkout answers
+    # checkout_completion_ineligible unless Shopify has granted the client that permission.
+    # The supported path is a handoff: we build the checkout (items, contact, address) and the
+    # buyer pays on the merchant's own checkout page at continue_url.
+    async def variant_id(self, sku: str) -> str | None:
+        await self._ensure_ready()
+        key = sku.upper()
+        if key not in self._variants:
+            await self._resolve(sku)
+        return self._variants.get(key)
+
+    async def create_checkout(self, lines: list[tuple[str, int]], buyer: dict, destination: dict) -> CheckoutSession:
+        """lines are (variant gid, quantity); buyer has email and/or phone_number."""
+        await self._ensure_ready()
+        if self._mode != "ucp":
+            raise StoreToolError("shopify_checkout_unavailable", "this store has no UCP checkout endpoint")
+        checkout = {
+            "line_items": [{"quantity": qty, "item": {"id": gid}} for gid, qty in lines],
+            "buyer": {k: v for k, v in buyer.items() if v},
+            "fulfillment": {"methods": [{"type": "shipping", "destinations": [destination]}]},
+            "context": {"address_country": destination.get("address_country") or self._country},
+        }
+        return CheckoutSession.parse(await self._ucp("create_checkout", {"checkout": checkout}))
+
+    async def get_checkout(self, checkout_id: str) -> CheckoutSession:
+        await self._ensure_ready()
+        return CheckoutSession.parse(await self._ucp("get_checkout", {"id": checkout_id}))
+
     async def reset(self) -> None:
         self._index.clear()
         self._gids.clear()
+        self._variants.clear()
+
+
+@dataclass
+class CheckoutSession:
+    """The parts of a UCP checkout the store reports back to the agent."""
+
+    checkout_id: str
+    status: str  # incomplete | requires_escalation | ready_for_complete | completed | canceled ...
+    continue_url: str | None
+    total_cents: int | None
+    currency: str
+    messages: list[str]
+    shopify_order: dict | None = None
+
+    @classmethod
+    def parse(cls, payload: Any) -> "CheckoutSession":
+        co = pick(payload, "checkout", default=payload) if isinstance(payload, dict) else {}
+        if not isinstance(co, dict) or not co.get("id"):
+            raise StoreToolError("shopify_checkout_failed", f"unexpected checkout response: {json.dumps(payload)[:200]}")
+        totals = {t.get("type"): t.get("amount") for t in co.get("totals") or [] if isinstance(t, dict)}
+        url = co.get("continue_url")
+        # Only ever pass on an HTTPS handoff link (Shopify's guidance for continue_url).
+        if not (isinstance(url, str) and urlsplit(url).scheme == "https"):
+            url = None
+        messages = [
+            f"{m.get('severity', m.get('type', 'info'))}: {m.get('code', '')} {m.get('content', '')}".strip()
+            for m in co.get("messages") or []
+            if isinstance(m, dict)
+        ]
+        order = co.get("order") if isinstance(co.get("order"), dict) else None
+        return cls(
+            checkout_id=str(co["id"]),
+            status=str(co.get("status") or "unknown"),
+            continue_url=url,
+            total_cents=_minor_units(totals.get("total")),
+            currency=str(co.get("currency") or "USD"),
+            messages=messages,
+            shopify_order=order,
+        )

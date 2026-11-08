@@ -234,6 +234,12 @@ async def _checkout(ctx: CallContext, claims: dict, args: dict) -> dict:
         if held:
             state.repo.settle_hold(mandate_id, total_cents)
         reason = f"paid ${dollars(total_cents):.2f}"
+    elif result.get("status") == "awaiting_buyer":
+        # Shopify handoff: the merchant's checkout is built and the parent pays there. Count it
+        # against the mandate now, so an agent cannot stack up payment links beyond the budget.
+        if held:
+            state.repo.settle_hold(mandate_id, total_cents)
+        reason = f"handoff ${dollars(total_cents):.2f}: buyer pays on the merchant checkout"
     else:
         if held:
             state.repo.release_hold(mandate_id, total_cents)

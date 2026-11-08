@@ -1,8 +1,8 @@
 """Pluggable catalog (mock seed or Shopify) plus the local cart and order books.
 
-Carts live in this process for both backends: checkout always goes to our payment mock, so a
-Shopify-side cart would add nothing to the demo and would couple us to Shopify's changing cart
-tools.
+Carts live in this process for both backends. Checkout goes to our payment mock, or with
+STORE_CHECKOUT=shopify the cart becomes a real Shopify checkout that the buyer pays on the
+merchant's page (see store/server.py).
 """
 from __future__ import annotations
 
@@ -75,8 +75,10 @@ class OrderBook:
         self._lock = threading.Lock()
         self._orders: dict[str, Order] = {}
 
-    def create(self, cart: Cart, ship_to_id: str, payment_id: str) -> Order:
-        order = Order.from_cart(cart, ship_to_id, payment_id)
+    def create(
+        self, cart: Cart, ship_to_id: str, payment_id: str, status: str = "confirmed", extra: dict | None = None
+    ) -> Order:
+        order = Order.from_cart(cart, ship_to_id, payment_id, status=status, extra=extra)
         with self._lock:
             self._orders[order.order_id] = order
         return order

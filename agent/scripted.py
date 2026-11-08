@@ -107,11 +107,17 @@ class ScriptedShopper:
         if tool == "checkout":
             if result.get("status") == "paid":
                 return f"paid ${result.get('total', 0):.2f}, order {result.get('order_id')}"
+            if result.get("status") == "awaiting_buyer":
+                return (
+                    f"order {result.get('order_id')} ready on Shopify (${result.get('shopify_total', 0):.2f}); "
+                    f"parent pays at {result.get('continue_url')}"
+                )
             return f"{result.get('status')}: {result.get('reason')}"
         if tool == "get_product":
             return result.get("product", {}).get("name", "")
         if tool == "get_order_status":
-            return f"{result.get('order_id')} {result.get('status')}"
+            shopify = f" (Shopify checkout {result['shopify_status']})" if result.get("shopify_status") else ""
+            return f"{result.get('order_id')} {result.get('status')}{shopify}"
         return json.dumps(result)[:120]
 
     def _add(self, sku: str, quantity: int = 1, cart_id: str | None = None) -> dict | None:

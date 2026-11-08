@@ -52,3 +52,25 @@ Store-level failures are MCP tool errors with text `code: message` (`unknown_sku
   Then: `STORE_BACKEND=shopify SHOPIFY_STORE_DOMAIN=<shop>.myshopify.com python -m store.server`.
   Check first with `python -m store.shopify_probe <shop>.myshopify.com "markers"`.
 - Carts and orders are kept in this process for both backends (`backend.py`); the payment mock (`payment.py`) starts with `PAYMENT_MOCK_FUNDS` dollars and answers `insufficient_funds` when they run out.
+
+## Real Shopify checkout (`STORE_CHECKOUT=shopify`)
+
+With `STORE_BACKEND=shopify STORE_CHECKOUT=shopify`, `checkout` turns the local cart into a real
+Shopify checkout through the store's Checkout MCP (`create_checkout`), then returns
+`status: "awaiting_buyer"` with a `continue_url`. **The parent pays on Shopify's checkout page**:
+Shopify does not let self-serve agents call `complete_checkout` (it answers
+`checkout_completion_ineligible` unless Shopify has granted the client that permission and the
+merchant has enabled the agent's channel), so the `continue_url` handoff is the supported path.
+On a dev store with the Bogus gateway the result is a real *test* order in Shopify admin.
+
+- `ship_to_id` is resolved server-side from the address book (`address_book.py`): the agent and
+  the model only see ids like `addr_home`, never the contact or street address. Put real test
+  data in `store/address_book.json` (gitignored) or point `SHOPIFY_ADDRESS_BOOK` at a file;
+  otherwise `address_book.example.json` (placeholder data) is used.
+- The gateway counts a handoff against the mandate (settles the hold), so a hijacked agent cannot
+  stack up payment links beyond the budget. If the parent never pays, that amount stays spent
+  until `agent demo reset`.
+- `get_order_status` refreshes from Shopify (`get_checkout`): `awaiting_buyer` becomes
+  `paid_by_buyer` once the parent completes payment, or `canceled` when the checkout expires.
+- Shopify's total can add shipping or tax on top of the cart; the result carries `shopify_total`
+  and a note when it differs. The budget is held on the cart total.

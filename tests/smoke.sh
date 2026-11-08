@@ -13,6 +13,12 @@ AP_PORT="${AGENTPASS_PORT:-8000}"; ST_PORT="${STORE_PORT:-8100}"
 WORK="$(mktemp -d)"
 export AGENT_STATE_FILE="$WORK/agent-state.json" AGENT_USER=parent AGENT_PASSWORD=parent-pass
 export AGENTPASS_API_URL="http://127.0.0.1:$AP_PORT" AGENTPASS_MODE=local
+# Pin the mock demo setup: these flows assert mock data ($50 budget, $89 headphones, poisoned
+# markers listing), so .env settings for a Shopify store must not leak in. Exported values win
+# over .env (load_dotenv never overrides).
+export STORE_BACKEND=mock STORE_CHECKOUT=mock AGENTPASS_DEMO_BUDGET=50 PAYMENT_MOCK_FUNDS=150
+export AGENTPASS_DEMO_MERCHANT=freshmart STORE_MERCHANT=freshmart AGENTPASS_DEMO_SHIP_TO=addr_home
+export AGENT_QUERY_HAPPY="school supplies" AGENT_QUERY_EXPENSIVE=headphones AGENT_QUERY_CHEAP=notebook AGENT_QUERY_POISONED=markers
 
 python -m store.server --port "$ST_PORT" >"$WORK/store.log" 2>&1 & STORE_PID=$!
 AGENTPASS_PORT="$AP_PORT" AGENTPASS_STORE_URL="http://127.0.0.1:$ST_PORT/mcp" python -m agentpass >"$WORK/agentpass.log" 2>&1 & AP_PID=$!
