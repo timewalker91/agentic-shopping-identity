@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/media/logo/aide-commerce-logo-on-dark.png">
+    <img src="docs/media/logo/aide-commerce-logo-on-light.png" alt="Aide-commerce by Agent Zero" width="460">
+  </picture>
+</p>
+
 # Aide-commerce: Agentic Shopping Identity
 
 > AWS x A10 Hack 2026, Santa Clara University · **A10 Track, Prompt 1: Agentic Identity**
