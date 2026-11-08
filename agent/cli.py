@@ -123,9 +123,9 @@ def cmd_shop(args: argparse.Namespace) -> int:
     if not broker.sid:
         print("no session yet; starting one")
         broker.start_session(None)
-    claims = broker.claims
     gateway = GatewayClient(broker)
-    gateway.initialize()
+    gateway.initialize()  # fetches a passport first if the session has none yet (e.g. a failed start)
+    claims = broker.claims
     cart_id = args.cart or f"cart_{claims.get('sid', 'demo')}"
     driver = args.driver or os.environ.get("AGENT_DRIVER", "scripted")
     print(f"driver: {driver}")

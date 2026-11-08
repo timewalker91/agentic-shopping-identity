@@ -147,7 +147,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .stop-icon { width: 30px; height: 30px; border-radius: 6px; background: currentColor; }
 
 /* ---------- stats ---------- */
-.stats { display: grid; grid-template-columns: 1fr 1fr 2.2fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.stats { display: grid; grid-template-columns: 1fr 1fr 1.3fr 2.2fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .stat { background: var(--panel); padding: 14px 18px; display: grid; gap: 4px; }
 .stat-n { font-size: 30px; font-weight: 600; line-height: 1; }
 .stat-l { color: var(--steel); font-size: 14px; }
@@ -186,7 +186,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
   .controls { grid-template-columns: 1fr; }
   .stop { min-height: 72px; }
   .stats { grid-template-columns: 1fr 1fr; }
-  .stat.wide { grid-column: span 2; }
+  .stat.wide, .stat.money { grid-column: span 2; }
   .row { grid-template-columns: 86px 1fr; }
   .row-tool, .row-reason { grid-column: span 2; }
   .row-ms { display: none; }

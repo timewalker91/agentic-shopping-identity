@@ -40,6 +40,17 @@ function seconds(ms: number): string {
   return `${(ms / 1000).toFixed(1)} s`;
 }
 
+/** Amount of a paid checkout, from the gateway's audit reason ("paid $15.49 ..."); 0 for anything else. */
+function paidAmount(e: AuditEvent): number {
+  if (e.tool !== "checkout" || e.decision !== "allow") return 0;
+  const m = /^paid \$([\d,]+(?:\.\d+)?)/.exec(e.reason);
+  return m ? Number(m[1].replace(/,/g, "")) : 0;
+}
+
+function usd(n: number): string {
+  return n === 0 ? "$0" : `$${n.toFixed(2)}`;
+}
+
 /** Counts plus the revocation proof: how fast the next call was refused, and how long the token still had. */
 export function Stats({ session, events }: { session: Session; events: AuditEvent[] }) {
   const calls = events.filter(isAgentCall);
@@ -51,6 +62,12 @@ export function Stats({ session, events }: { session: Session; events: AuditEven
       ? calls.find((e) => e.decision === "revoked" && e.layer === "revocation" && Date.parse(e.ts) >= revokedAt)
       : undefined;
   const exp = session.passport?.exp;
+  // Money: once a policy rule has blocked the agent (an attack, not a budget limit), anything paid
+  // after that point counts as lost. Purchases before it were within the mandate.
+  const firstAttack = calls.find((e) => e.decision === "deny" && e.layer === "policy");
+  const paidSince = (from?: AuditEvent) =>
+    calls.filter((e) => !from || Date.parse(e.ts) > Date.parse(from.ts)).reduce((sum, e) => sum + paidAmount(e), 0);
+  const lost = firstAttack ? paidSince(firstAttack) : 0;
 
   return (
     <section className="stats" aria-label="Session summary">
@@ -61,6 +78,19 @@ export function Stats({ session, events }: { session: Session; events: AuditEven
       <div className="stat">
         <span className={`stat-n mono ${blocked ? "red" : ""}`}>{blocked}</span>
         <span className="stat-l">calls blocked by policy</span>
+      </div>
+      <div className="stat money">
+        {firstAttack ? (
+          <>
+            <span className={`stat-n mono ${lost ? "red" : "green"}`}>{usd(lost)}</span>
+            <span className="stat-l">{lost ? "paid after the attack started" : "lost to the attack: no order went through after it started"}</span>
+          </>
+        ) : (
+          <>
+            <span className="stat-n mono">{usd(paidSince())}</span>
+            <span className="stat-l">spent within the mandate</span>
+          </>
+        )}
       </div>
       <div className="stat wide">
         {revokedAt == null ? (

@@ -35,3 +35,4 @@ cdk.out/
 
 # Local agent key (local mode)
 .local/
+*.tsbuildinfo
