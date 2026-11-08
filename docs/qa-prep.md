@@ -112,3 +112,39 @@ The gateway is a policy enforcement point on the request path, the same place an
 
 **22. What happens to the user's personal data after a revoke?**
 The agent never had it. The token carries only `ship_to_id=addr_home`; the address book and the payment method stay on the server with the account owner. After a revoke, every call is refused at the gateway, so the agent can't make anyone use them.
+
+## Product design (Isabella and Eric lead; Larry for agent behavior)
+
+**23. Who is the user, and why a parent?**
+Anyone who hands spending to someone else with limits. A parent letting an agent buy school supplies is the easiest case to picture: a budget, one store, one home address, and a clear "stop" moment. The same pattern fits company procurement agents on corporate cards, which is the business case.
+
+**24. What does the user actually have to do?**
+Sign in once and set the mandate (budget, store, address). Then they can watch or walk away. The dashboard shows each decision in plain words, and Stop is one click. If they aren't watching, the automatic rule (2 violations) still cuts the agent off.
+
+**25. Why not just give the agent a virtual card with a $50 limit?**
+A card limit caps the money, not *what* is bought, *where* it ships, or *which* actions the agent can take. A $50 gift card for an attacker passes a $50 card limit. A card also can't stop the agent before the order is placed, and it doesn't say which agent is buying. Virtual cards are on our roadmap as an extra layer, not a replacement.
+
+**26. Why the passport metaphor?**
+Everyone already knows what a passport answers: who you are, who vouches for you, what you're allowed to do, when it expires, and that it can be cancelled at the border. That's exactly what the agent's token carries, so the dashboard shows it as a passport card with a countdown and a REVOKED stamp.
+
+**27. Can the user pause and resume the agent after Stop?**
+No, on purpose: Stop means stop. That session's passport is dead, and the agent can't get a new one for it. To continue, the user starts a new task, which issues a fresh passport. A "pause" that keeps old authority alive is exactly what an attacker would want.
+
+**28. What does the user see when something is blocked?**
+A plain-language line in the live feed, not an error code: for example, "Refused at the gateway: no order placed; your address and card were never used", or that a gift card was blocked. The stats show calls allowed, calls blocked, money spent, and "$0 lost" after an attack.
+
+**29. Won't strict rules annoy users with false alarms?**
+That's the main trade-off we designed for. Over budget is not a violation: the agent is told how much is left and picks cheaper items. One denied call only blocks that call; it takes 2 violations to revoke. Default deny means a new kind of purchase needs a rule change, which we accept for money.
+
+**30. Why 5 minutes? Won't the agent keep getting logged out?**
+The user never sees it. The agent's broker quietly gets a fresh passport before the old one expires, as long as the session isn't revoked. Five minutes only limits how long a leaked token is useful; Stop works instantly regardless.
+
+**31. How would the user get alerts when they're not looking at the dashboard?**
+Not built yet. Today the dashboard refreshes every second. Next: push a notification to the phone on a revoke or a blocked attack, and Face ID approval for big purchases, bound to the exact cart.
+
+**32. Does it work with real stores?**
+Any store that exposes its tools over MCP. Larry built an adapter for a Shopify development store behind the same tool contract; the demo uses our mock store so it's predictable on stage. The store doesn't need to change: the gateway sits in front of it.
+
+**33. What about several agents, or a family with several kids?**
+Each agent has its own key and its own passport, so each gets its own mandate and can be stopped alone. The gateway already checks revocations by session, agent, mandate and user, so "stop this one agent everywhere" or "stop every agent of this account" are one write each. The screens for that are on the roadmap.
+

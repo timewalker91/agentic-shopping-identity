@@ -83,6 +83,15 @@ If you're behind at 3:15, skip Business and go straight from Results to Close.
 9. **"Can the agent lie about the price or overspend?"** (Jack) No. The total comes from the store's own records, and a conditional write puts a hold on the budget, so two checkouts at once can't spend the same money.
 10. **"How much did AI write?"** (whoever is asked) Honest: we used Claude Code. We designed the architecture and contracts, reviewed every module, and wrote 42 tests. Be ready to walk `call_tool` in `agentpass/gateway.py`: token → revocation → mandate → Cedar → budget → forward → audit.
 
+### Product design questions (Isabella or Eric)
+- **"Why not a virtual card with a limit?"** A card caps the money, not *what* is bought or *where* it ships: a $50 gift card for an attacker passes a $50 limit. It also can't stop the agent before the order is placed.
+- **"What does the user have to do?"** Sign in, set the mandate (budget, store, address), then watch or walk away. Stop is one click; the automatic rule covers them when they aren't watching.
+- **"Can they pause and resume?"** No, on purpose: Stop means stop. A new task gets a fresh passport. A pause that keeps old authority alive is what an attacker wants.
+- **"Won't strict rules cause false alarms?"** Over budget isn't a violation (the agent picks cheaper items), one denial only blocks that call, and it takes 2 violations to revoke.
+- **"Why a passport?"** Everyone knows what it answers: who, vouched for by whom, allowed to do what, until when, and it can be cancelled at the border.
+
+More (Q23–33): [qa-prep.md](qa-prep.md#product-design-isabella-and-eric-lead-larry-for-agent-behavior).
+
 ## Do and don't
 - **Do** say "simulated" about the hijacked agent, every time. It earns trust.
 - **Do** point at the token countdown when it's revoked: time left + refused is the whole point of Prompt 1.
