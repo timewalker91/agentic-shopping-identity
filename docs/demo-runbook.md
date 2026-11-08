@@ -49,6 +49,7 @@ The dashboard follows the newest session by itself; nobody has to click between 
 
 | Problem | Do this |
 |---|---|
+| **Venue Wi-Fi slow or flaky** (seen on 11-07 from 20:30: about half of HTTPS connections failed, AWS calls took up to 14 s, `agent session start` crashed once) | Switch the demo laptop to a **phone hotspot** and rerun the warm-up check. If AWS calls are still slow, use local mode. Decide during the 07:00 warm-up, not on stage |
 | `ExpiredToken` / `Unable to locate credentials` | Refresh the AWS credentials (step 1.1), then restart the API and store tabs |
 | Wi-Fi or AWS down, or the workshop account closed | **Local mode** (below). Same demo, no AWS; step A uses the scripted agent instead of Bedrock |
 | Dashboard says "Can't reach the Aide-commerce API" | The API tab stopped; restart it |
