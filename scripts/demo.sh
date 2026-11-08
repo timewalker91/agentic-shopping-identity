@@ -24,6 +24,21 @@ step() {  # step "<caption>" <agent args...>: shows the caption and the command,
   agent "$@"
 }
 
+# Sign the agent in fresh (logins last 1 hour). The password comes from .env (AWS mode) or is the
+# local default (local mode); it is never printed. Falls back to an interactive login.
+if [ -z "${AGENT_PASSWORD:-}" ]; then
+  if [ "${AGENTPASS_MODE:-}" = "local" ]; then
+    AGENT_PASSWORD=parent-pass
+  else
+    AGENT_PASSWORD=$(grep -E '^AGENTPASS_DEMO_PASSWORD=' .env 2>/dev/null | head -1 | cut -d= -f2-)
+  fi
+fi
+export AGENT_USER="${AGENT_USER:-parent}" AGENT_PASSWORD
+if ! agent login >/dev/null 2>&1; then
+  printf '%sAutomatic sign-in failed; sign in by hand:%s\n' "$RE" "$N"
+  agent login || exit 1
+fi
+
 printf '%sAide-commerce live demo%s  (press Enter to run each step; click this window first)\n' "$B" "$N"
 printf '%sPress Enter to reset the demo (clean budget, no sessions)...%s' "$DIM" "$N"
 read -r _
