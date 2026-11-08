@@ -20,7 +20,7 @@ Everything needed to run the live demo on the demo laptop (Jack's), plus the fal
    source ~/.aws_workshop_env && uv run python -m agent.demo_check --rounds 1 --bedrock
    ```
    It must end with `1/1 rounds passed`. If not, see section 4.
-4. **Screen layout:** dashboard (http://127.0.0.1:5173, signed in as `parent`) on the right two-thirds, a large-font Terminal on the left third. Press **Reset demo** on the dashboard.
+4. **Screen layout:** dashboard (http://127.0.0.1:5173, signed in as `parent`) on the right two-thirds, a large-font Terminal on the left third. Press **Reset demo** on the dashboard. **The dashboard needs about 1100 px of width** to show Live decisions beside the passport: if Chrome is narrower (e.g. half the screen or a projector at low resolution), zoom it to 80% (Cmd − twice). Hide the Dock (Cmd+Option+D).
 5. **Log the agent in ahead of time** in the demo Terminal: `source ~/.aws_workshop_env && uv run python -m agent login` (user `parent`, password from `.env`).
 
 ## 2. The 4-minute run
