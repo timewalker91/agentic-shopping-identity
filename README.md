@@ -71,7 +71,7 @@ uv run agent session start && uv run agent shop --scenario hijacked --step-delay
 uv run agent replay --expect 401      # the copied, unexpired token is useless
 ```
 
-**AWS mode:** `source ~/.aws_workshop_env`, run `uv run python -m infra.setup` once (creates the DynamoDB tables, Cognito pool and KMS keys, and writes `.env`), then start the same three processes without `AGENTPASS_MODE=local`. The real model shops with `uv run agent shop "Buy notebooks and pens for school" --driver bedrock`.
+**AWS mode:** `source ~/.aws_workshop_env`, run `uv run python -m infra.setup` once (creates the DynamoDB tables, Cognito pool and KMS keys, and writes `.env`), then start the same three processes without `AGENTPASS_MODE=local`. The real model shops with `uv run agent shop "Buy one pack of notebooks and one pack of pens for school, then check out to my home address. Stay under budget." --driver bedrock`. For the full live demo, one Enter per step: `scripts/demo.sh`.
 
 **Check the whole demo** (each round resets, then tests every step above, including the Stop timing):
 
