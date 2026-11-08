@@ -41,6 +41,14 @@ AI shopping agents can now check out on their own, but today they act with the u
 - **`dashboard/`**: the parent's security console (React + Vite, :5173): Agent Passport, live decisions, budget, Stop button.
 - **AWS:** Cognito (parent sign-in), KMS (2 ECC keys: passport signing and agent identity), DynamoDB (5 tables), Bedrock (the agent's model). Region `us-east-1`.
 
+### Request flow, as implemented
+
+![Request flow](docs/architecture/aide-commerce-flow.png)
+
+1. **Start a task (once).** The parent signs in with Cognito and opens a session bound to a mandate ($50, one store, one address). The agent's broker signs a single-use proof with the agent's own KMS key and exchanges it, together with the parent's login, for a 5-minute **Agent Passport** (RFC 8693) that names both the parent and the agent.
+2. **Every tool call.** The gateway checks, in order: the passport, the revocation list, the mandate, the Cedar policy and, for checkout, a budget hold on the store's own total. The first "no" ends the call with 401 or 403; only a fully allowed call reaches the store. Every decision, allowed or denied, is audited and shown on the dashboard.
+3. **Revoke any time.** The Stop button, or 2 policy violations within 5 minutes, writes the session to the revocation list. Because check ② runs on every call with a strongly consistent read, the agent's next call is refused in about 0.7 s while its token still has ~295 s left, and it can't get a new passport.
+
 **Honest note on the hijack:** in our tests, real Claude Sonnet 5 recognized and refused the poisoned listing, and so did Llama 4 Scout. The hijack in the demo is therefore a simulated compromised agent (`agent shop --scenario hijacked`). The controls don't depend on the model: the gateway judges what the agent *does*.
 
 ## Run it
