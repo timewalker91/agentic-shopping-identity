@@ -10,13 +10,11 @@ Everything needed to run the live demo on the demo laptop (Jack's), plus the fal
    ```
    source ~/.aws_workshop_env && aws sts get-caller-identity
    ```
-2. **Start the three servers**, one Terminal tab each, from `~/a10hack/agentic-shopping-identity`:
+2. **Start the three servers** with one command, from `~/a10hack/agentic-shopping-identity`:
    ```
-   source ~/.aws_workshop_env && uv run python -m store.server --backend mock --checkout mock
-   source ~/.aws_workshop_env && uv run python -m agentpass
-   cd dashboard && npm run dev
+   scripts/start-servers.sh        # store :8100, API :8000, dashboard :5173, in the background
    ```
-   `curl -s http://127.0.0.1:8000/health` should say `"mode":"aws"`.
+   It prints ✓ for each server and `API mode: aws`. They keep running if you close the terminal; `scripts/stop-servers.sh` stops them, logs are in `.local/logs/`. If the dashboard ever says "Can't reach the Aide-commerce API", run it again.
 3. **Warm-up check** (about 1 minute; it resets the demo when it finishes):
    ```
    source ~/.aws_workshop_env && uv run python -m agent.demo_check --rounds 1 --bedrock
