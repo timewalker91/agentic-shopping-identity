@@ -63,9 +63,13 @@ def local_agent_signer(path: Path | str | None = None) -> LocalSigner:
 
 
 def agent_signer_from_env(region: str = "us-east-1") -> Signer:
-    """The broker's signer: the agent's KMS key if AGENTPASS_AGENT_KMS_KEY_ID is set, else the local key file."""
+    """The broker's signer: the agent's KMS key if AGENTPASS_AGENT_KMS_KEY_ID is set, else the local key file.
+
+    AGENTPASS_MODE=local always uses the local key, so the offline fallback works even when .env
+    still holds the KMS key id (the API in local mode only trusts the local key).
+    """
     kms_key = os.environ.get("AGENTPASS_AGENT_KMS_KEY_ID")
-    if kms_key:
+    if kms_key and os.environ.get("AGENTPASS_MODE", "").lower() != "local":
         return KmsSigner(kms_key, os.environ.get("AWS_REGION", region))
     return local_agent_signer()
 

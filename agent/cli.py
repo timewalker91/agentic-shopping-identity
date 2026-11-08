@@ -1,4 +1,4 @@
-"""`agent`: the command-line MCP client for AgentPass.
+"""`agent`: the command-line MCP client for Aide-commerce.
 
     agent login                      parent login (Cognito in aws mode)
     agent session start              create a session and get the first passport (delegated token)
@@ -233,7 +233,7 @@ def cmd_models(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="agent", description="AgentPass shopping agent (MCP client)")
+    parser = argparse.ArgumentParser(prog="agent", description="Aide-commerce shopping agent (MCP client)")
     parser.add_argument("--api", default=os.environ.get("AGENTPASS_API_URL", "http://127.0.0.1:8000"))
     sub = parser.add_subparsers(dest="command", required=True)
 

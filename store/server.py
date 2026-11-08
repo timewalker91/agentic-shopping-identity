@@ -228,7 +228,7 @@ def main() -> None:
     from agentpass.config import load_dotenv
 
     load_dotenv()
-    parser = argparse.ArgumentParser(description="AgentPass store MCP server")
+    parser = argparse.ArgumentParser(description="Aide-commerce store MCP server")
     parser.add_argument("--host", default=os.environ.get("STORE_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("STORE_PORT", "8100")))
     parser.add_argument("--backend", choices=("mock", "shopify"), default=os.environ.get("STORE_BACKEND", "mock"))

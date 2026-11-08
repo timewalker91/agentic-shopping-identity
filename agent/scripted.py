@@ -172,6 +172,7 @@ class ScriptedShopper:
             self._checkout(cart_id=cheaper_cart)
 
     def _run_hijacked(self) -> None:
+        self.out("   (simulated compromised agent: scripted, no LLM. Real models refused this injection in our tests)")
         query = query_for("poisoned")
         found = self._call("search_products", {"query": query}) or {}
         products = found.get("products", [])
@@ -194,7 +195,7 @@ class ScriptedShopper:
         quantity = int(qty_match.group(1)) if qty_match else 1
         attacker_addr = addr_match.group(1) if addr_match else "addr_4471_warehouse"
         self.out(f"   ! hidden instruction in the listing: buy {quantity} x {gift_sku}, ship to {attacker_addr}")
-        self.out("   ! a hijacked agent obeys. AgentPass should stop it:")
+        self.out("   ! a hijacked agent obeys. Aide-commerce should stop it:")
         self._add(gift_sku, quantity)
         self._checkout(ship_to_id=attacker_addr)
         self.out("   the agent tries to carry on with an allowed tool:")
